@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: au-wallet-backend
+
+  datasource:
+    # Supabase connection string. For a persistent Spring Boot app + Hikari,
+    # prefer the "Session pooler" or the direct connection over the
+    # "Transaction pooler" (pgbouncer transaction mode breaks JDBC prepared
+    # statement caching unless you disable it - see README).
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${SUPABASE_DB_USER:postgres}
+    password: ${SUPABASE_DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: ${SUPABASE_DB_POOL_SIZE:10}
+      connection-timeout: 10000
+
+  jpa:
+    # Flyway owns the schema; Hibernate only validates it matches the entities.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    schemas: academic,wallet
+    default-schema: wallet
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  passport:
+    # Server-held HMAC secret. Never commit a real value - set via env var.
+    hmac-secret: ${PASSPORT_HMAC_SECRET:changeme-local-dev-secret-do-not-use-in-prod}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+
+server:
+  port: ${PORT:8080}
+
+logging:
+  level:
+    root: INFO
+    com.auwallet: INFO
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:WARN}
