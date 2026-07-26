@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { describe, beforeEach, it } from 'node:test';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -20,3 +21,13 @@ describe('AppController', () => {
     });
   });
 });
+
+function expect(actual: unknown) {
+  return {
+    toBe(expected: unknown) {
+      if (actual !== expected) {
+        throw new Error(`Expected ${String(actual)} to be ${String(expected)}`);
+      }
+    },
+  };
+}
