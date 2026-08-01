@@ -23,38 +23,66 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+NestJS backend for AU Wallet. The Member 1 module owns Supabase
+authentication, holder accounts, roles, and login security.
 
 ## Project setup
 
 ```bash
-$ npm install
+npm install
+cp .env.example .env
 ```
+
+Use a backend-only `sb_secret_...` key for `SUPABASE_SECRET_KEY`. Never send
+that key to the wallet frontend.
+
+Before using the Member 1 endpoints, apply
+`src/supabase/migrations/202607280001_complete_member1_auth.sql` to the shared
+development project through the Supabase SQL editor. The migration links
+holders to `auth.users`, enables holder-account RLS, and creates the backend-only
+login audit table.
+
+## Member 1 endpoints
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `POST /auth/forgot-password`
+- `POST /auth/resend-confirmation`
+- `PATCH /auth/password`
+- `GET /auth/me`
+- `GET /holder-accounts/me`
+- `PATCH /holder-accounts/me`
+- `PATCH /holder-accounts/:holderAccountId/status` (`issuer_staff` or `admin`)
+- `PATCH /roles/:authUserId` (`admin`)
+
+Protected endpoints require `Authorization: Bearer <access-token>`.
 
 ## Compile and run the project
 
 ```bash
 # development
-$ npm run start
+npm run start
 
 # watch mode
-$ npm run start:dev
+npm run start:dev
 
 # production mode
-$ npm run start:prod
+npm run start:prod
 ```
 
 ## Run tests
 
 ```bash
 # unit tests
-$ npm run test
+npm run test
 
 # e2e tests
-$ npm run test:e2e
+npm run test:e2e
 
 # test coverage
-$ npm run test:cov
+npm run test:cov
 ```
 
 ## Deployment

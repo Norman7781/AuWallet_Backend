@@ -2,10 +2,9 @@ import { UserRole } from '../enums/role.enum';
 import { AccountStatus } from '../enums/account-status.enum';
 
 export interface AuthenticatedUser {
-  userId: string;
   supabaseAuthId: string;
-  holderAccountId: number;
+  holderAccountId: number | null;
   email: string;
   role: UserRole;
-  accountStatus: AccountStatus;
+  accountStatus: AccountStatus | null;
 }

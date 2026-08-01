@@ -5,7 +5,10 @@ export interface EnvironmentVariables {
   PORT: number;
   SUPABASE_PROJECT_REF: string;
   SUPABASE_URL: string;
+  SUPABASE_PUBLISHABLE_KEY: string;
   SUPABASE_SECRET_KEY: string;
+  EMAIL_CONFIRMATION_REDIRECT_URL?: string;
+  PASSWORD_RESET_REDIRECT_URL?: string;
 }
 
 function requireNonEmptyString(
@@ -43,10 +46,20 @@ export function validateEnvironment(
   }
 
   const secretKey = requireNonEmptyString(config, 'SUPABASE_SECRET_KEY');
+  const publishableKey = requireNonEmptyString(
+    config,
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
 
   if (!secretKey.startsWith('sb_secret_')) {
     throw new Error(
       'SUPABASE_SECRET_KEY must be a modern Supabase sb_secret_... backend key',
+    );
+  }
+
+  if (!publishableKey.startsWith('sb_publishable_')) {
+    throw new Error(
+      'SUPABASE_PUBLISHABLE_KEY must be a modern Supabase sb_publishable_... key',
     );
   }
 
@@ -60,12 +73,35 @@ export function validateEnvironment(
     throw new Error('PORT must be an integer between 1 and 65535');
   }
 
+  const optionalUrl = (key: keyof EnvironmentVariables): string | undefined => {
+    const rawValue = config[key];
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return undefined;
+    }
+
+    if (typeof rawValue !== 'string') {
+      throw new Error(`${key} must be a valid URL`);
+    }
+
+    try {
+      return new URL(rawValue.trim()).toString();
+    } catch {
+      throw new Error(`${key} must be a valid URL`);
+    }
+  };
+
   return {
     ...config,
     NODE_ENV: nodeEnv,
     PORT: port,
     SUPABASE_PROJECT_REF: projectRef,
     SUPABASE_URL: url.origin,
+    SUPABASE_PUBLISHABLE_KEY: publishableKey,
     SUPABASE_SECRET_KEY: secretKey,
+    EMAIL_CONFIRMATION_REDIRECT_URL: optionalUrl(
+      'EMAIL_CONFIRMATION_REDIRECT_URL',
+    ),
+    PASSWORD_RESET_REDIRECT_URL: optionalUrl('PASSWORD_RESET_REDIRECT_URL'),
   };
 }

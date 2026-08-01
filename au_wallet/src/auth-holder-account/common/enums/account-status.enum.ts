@@ -1,6 +1,6 @@
 export enum AccountStatus {
-  PENDING = 'PENDING',
-  ACTIVE = 'ACTIVE',
-  REJECTED = 'REJECTED',
-  SUSPENDED = 'SUSPENDED',
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  REJECTED = 'rejected',
+  SUSPENDED = 'suspended',
 }

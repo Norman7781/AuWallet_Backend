@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+
+import { AuthHolderAccountModule } from './auth-holder-account/auth-holder-account.module';
 import { validateEnvironment } from './config/environment';
-import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
   imports: [
@@ -12,10 +11,8 @@ import { SupabaseModule } from './supabase/supabase.module';
       isGlobal: true,
       validate: validateEnvironment,
     }),
-    SupabaseModule,
+
+    AuthHolderAccountModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
-
