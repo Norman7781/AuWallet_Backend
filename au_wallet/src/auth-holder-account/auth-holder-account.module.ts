@@ -5,5 +5,6 @@ import { HolderAccountModule } from './holder-account/holder-account.module';
 
 @Module({
   imports: [AuthModule, HolderAccountModule],
+  exports: [AuthModule],
 })
 export class AuthHolderAccountModule {}
