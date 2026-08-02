@@ -152,8 +152,17 @@ outcomes remain unchanged.
 ## Academic identity and email ownership
 
 `academic.student.personal_email` is optional and non-authoritative. Every
-synthetic academic student stores `NULL` in this column. `university_email`
-remains optional and unchanged, but it is not an automatic matching factor.
+synthetic academic student stores `NULL` in this column. Every current fixture
+student has a unique university email derived from the academic admission
+number:
+
+```text
+u{academic.student.admission_no}@au.test
+```
+
+The `.test` domain prevents collisions with real university accounts. The
+generated email is a mock display/contact fixture only; it is not an automatic
+matching factor.
 
 `wallet.holder_account.personal_email` remains required current contact and
 recovery information. Authentication verifies ownership of the wallet email
@@ -209,9 +218,20 @@ fixture:
 npm run seed:academic:correct-curriculum -- /tmp/au-wallet-academic-curriculum-correction.sql
 ```
 
+Generate the guarded, idempotent university-email assignment for the installed
+20-student fixture:
+
+```bash
+npm run seed:academic:set-university-emails -- /tmp/au-wallet-academic-university-email.sql
+```
+
 Each generated file is mode `0600`. The base and expansion artifacts contain
 derived passport HMACs and must remain temporary. Generators never connect to
 Supabase by themselves.
+
+The university-email transaction derives each address from the database-owned
+student identity, updates only approved synthetic student email fields, and
+asserts that wallet table counts remain unchanged.
 
 The correction transaction accepts only the exact legacy fixture or the exact
 already-corrected fixture. It verifies a preservation fingerprint, removes

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { PROGRAM_CODE } from './academic-curriculum-fixture.mjs';
 
 const PROJECT_REF = 'ezsylcmnqbcwvkoqybkd';
-const EXPECTED_FIXTURE_FINGERPRINT = '8ddd18d4633db282f4266e723fe59a73';
+const EXPECTED_FIXTURE_FINGERPRINT = '7569dde321f3f7852d9318bcd4c21b90';
 const EXPECTED_OUTPUT = resolve(
   '/tmp/au-wallet-academic-personal-email-removal.sql',
 );
@@ -92,7 +92,6 @@ const fixtureFingerprintExpression = `md5(jsonb_build_object(
         'middle_name', student.middle_name,
         'last_name', student.last_name,
         'date_of_birth', student.date_of_birth,
-        'university_email', student.university_email,
         'passport_number_hmac', student.passport_number_hmac
       ) ORDER BY student.admission_no)
       FROM academic.student AS student

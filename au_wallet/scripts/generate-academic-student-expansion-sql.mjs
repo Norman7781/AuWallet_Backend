@@ -10,114 +10,24 @@ import {
 } from './academic-curriculum-fixture.mjs';
 
 const PROJECT_REF = 'ezsylcmnqbcwvkoqybkd';
-const BASE_FIXTURE_FINGERPRINT = 'da91906a3f834c358cb219f9756eb2c0';
+const BASE_FIXTURE_FINGERPRINT = '2083ef44f9227f8578a878fde658806c';
 const BASE_ADMISSIONS = ['6899001', '6499002', '6399003', '6499004', '6699005'];
 
 const STUDENTS = [
-  [
-    '6899011',
-    'Mr',
-    'Narin',
-    null,
-    'Kittisak',
-    '2006-11-03',
-    'narin.kittisak@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6799012',
-    'Ms',
-    'Pimchanok',
-    null,
-    'Wattanakul',
-    '2005-07-19',
-    'pimchanok.wattanakul@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6699013',
-    'Mr',
-    'Tawan',
-    null,
-    'Siriporn',
-    '2004-02-28',
-    'tawan.siriporn@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6499014',
-    'Ms',
-    'Chanya',
-    null,
-    'Methakul',
-    '2002-10-14',
-    'chanya.methakul@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6499015',
-    'Mr',
-    'Krit',
-    null,
-    'Phongsawat',
-    '2002-05-09',
-    'krit.phongsawat@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6499016',
-    'Ms',
-    'Napasorn',
-    null,
-    'Yindee',
-    '2002-08-31',
-    'napasorn.yindee@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6399017',
-    'Mr',
-    'Ronnakorn',
-    null,
-    'Teerakul',
-    '2001-01-22',
-    'ronnakorn.teerakul@students.synthetic-au.test',
-    null,
-  ],
+  ['6899011', 'Mr', 'Narin', null, 'Kittisak', '2006-11-03', null, null],
+  ['6799012', 'Ms', 'Pimchanok', null, 'Wattanakul', '2005-07-19', null, null],
+  ['6699013', 'Mr', 'Tawan', null, 'Siriporn', '2004-02-28', null, null],
+  ['6499014', 'Ms', 'Chanya', null, 'Methakul', '2002-10-14', null, null],
+  ['6499015', 'Mr', 'Krit', null, 'Phongsawat', '2002-05-09', null, null],
+  ['6499016', 'Ms', 'Napasorn', null, 'Yindee', '2002-08-31', null, null],
+  ['6399017', 'Mr', 'Ronnakorn', null, 'Teerakul', '2001-01-22', null, null],
   ['6399018', 'Ms', 'Benyada', null, 'Srisawat', '2001-06-17', null, null],
   ['6399019', 'Mr', 'Phurin', null, 'Kanchana', '2000-12-04', null, null],
   ['6399020', 'Ms', 'Supansa', null, 'Thamrong', '2001-03-26', null, null],
   ['6499021', 'Mr', 'Natthanon', null, 'Charoen', '2002-09-12', null, null],
-  [
-    '6899022',
-    'Ms',
-    'Wipada',
-    null,
-    'Raksakul',
-    '2006-04-07',
-    'wipada.raksakul@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6799023',
-    'Mr',
-    'Jirawat',
-    null,
-    'Manee',
-    '2005-09-25',
-    'jirawat.manee@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6699024',
-    'Ms',
-    'Kanya',
-    null,
-    'Phromchai',
-    '2004-07-11',
-    'kanya.phromchai@students.synthetic-au.test',
-    null,
-  ],
+  ['6899022', 'Ms', 'Wipada', null, 'Raksakul', '2006-04-07', null, null],
+  ['6799023', 'Mr', 'Jirawat', null, 'Manee', '2005-09-25', null, null],
+  ['6699024', 'Ms', 'Kanya', null, 'Phromchai', '2004-07-11', null, null],
   ['6499025', 'Mr', 'Pongsatorn', null, 'Saelim', '2002-02-16', null, null],
 ];
 
@@ -609,26 +519,15 @@ function valuesSql(rows, types, indent = '      ') {
 
 function validateFixtureModel() {
   const admissions = new Set(STUDENTS.map((student) => student[0]));
-  const universityEmails = STUDENTS.map((student) => student[6]).filter(
-    Boolean,
-  );
   if (
     STUDENTS.length !== 15 ||
     admissions.size !== 15 ||
-    universityEmails.length !== new Set(universityEmails).size ||
     [...admissions].some((admission) => BASE_ADMISSIONS.includes(admission))
   ) {
     fail('Additional student natural-key assertions failed');
   }
-  if (
-    STUDENTS.some(
-      (student) =>
-        student[7] !== null ||
-        (student[6] !== null &&
-          !student[6].endsWith('@students.synthetic-au.test')),
-    )
-  ) {
-    fail('Synthetic email-domain assertion failed');
+  if (STUDENTS.some((student) => student[6] !== null || student[7] !== null)) {
+    fail('Database-derived university-email placeholder assertion failed');
   }
   const statusCounts = new Map();
   ENROLLMENTS.forEach((enrollment) =>
@@ -821,6 +720,7 @@ DO $academic_expansion$
 DECLARE
   additional_any boolean;
   base_fingerprint text;
+  affected_rows bigint;
 BEGIN
   SELECT
     EXISTS (
@@ -857,7 +757,6 @@ BEGIN
         'middle_name', middle_name,
         'last_name', last_name,
         'date_of_birth', date_of_birth,
-        'university_email', university_email,
         'passport_number_hmac', passport_number_hmac
       ) ORDER BY admission_no)
       FROM academic.student
@@ -991,6 +890,17 @@ BEGIN
     VALUES
 ${studentValues};
 
+    UPDATE academic.student
+    SET university_email = 'u' || admission_no || '@au.test',
+        updated_at = clock_timestamp()
+    WHERE admission_no IN (${additionalAdmissions})
+      AND university_email IS DISTINCT FROM
+        'u' || admission_no || '@au.test';
+    GET DIAGNOSTICS affected_rows = ROW_COUNT;
+    IF affected_rows <> 15 THEN
+      RAISE EXCEPTION 'Expansion university-email assignment count mismatch';
+    END IF;
+
     INSERT INTO academic.student_program_enrollment (
       student_id, program_id, admission_date, academic_status,
       previous_institution_name
@@ -1100,7 +1010,8 @@ ${studentValues}
     ),
     actual AS (
       SELECT admission_no, title, first_name, middle_name, last_name,
-        date_of_birth, university_email, personal_email, passport_number_hmac
+        date_of_birth, NULL::text AS university_email, personal_email,
+        passport_number_hmac
       FROM academic.student
       WHERE admission_no IN (${additionalAdmissions})
     ),
@@ -1109,6 +1020,13 @@ ${studentValues}
     SELECT 1 FROM missing UNION ALL SELECT 1 FROM extra
   ) THEN
     RAISE EXCEPTION 'Expanded fixture student assertion failed';
+  END IF;
+
+  IF (SELECT count(*) FROM academic.student
+      WHERE university_email = 'u' || admission_no || '@au.test') <> 20
+    OR (SELECT count(DISTINCT university_email) FROM academic.student) <> 20
+  THEN
+    RAISE EXCEPTION 'Expanded fixture university-email assertion failed';
   END IF;
 
   IF (SELECT count(*) FROM academic.student

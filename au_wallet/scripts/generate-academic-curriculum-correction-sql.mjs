@@ -18,7 +18,7 @@ const EXPECTED_OUTPUT = resolve(
   '/tmp/au-wallet-academic-curriculum-correction.sql',
 );
 const LEGACY_CURRICULUM_FINGERPRINT = 'e455e696fb4d127ab4c0fc4cb71a307b';
-const PRESERVED_FIXTURE_FINGERPRINT = 'bd2f59a86b8fd90bd10c937cab42cbb2';
+const PRESERVED_FIXTURE_FINGERPRINT = '2ab5b8a997389ca4c35145fa28d1eb9c';
 
 function fail(message) {
   throw new Error(message);
@@ -138,7 +138,6 @@ const preservedFixtureFingerprintExpression = `md5(jsonb_build_object(
         'admission_no', s.admission_no, 'title', s.title,
         'first_name', s.first_name, 'middle_name', s.middle_name,
         'last_name', s.last_name, 'date_of_birth', s.date_of_birth,
-        'university_email', s.university_email,
         'personal_email', s.personal_email,
         'passport_number_hmac', s.passport_number_hmac
       ) ORDER BY s.admission_no) FROM academic.student s

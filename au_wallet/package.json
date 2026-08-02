@@ -24,7 +24,8 @@
     "seed:academic:generate": "node --env-file=.env.seed.local scripts/generate-academic-seed-sql.mjs",
     "seed:academic:expand": "node --env-file=.env.seed.local scripts/generate-academic-student-expansion-sql.mjs",
     "seed:academic:correct-curriculum": "node scripts/generate-academic-curriculum-correction-sql.mjs",
-    "seed:academic:remove-personal-email": "node scripts/generate-academic-personal-email-removal-sql.mjs"
+    "seed:academic:remove-personal-email": "node scripts/generate-academic-personal-email-removal-sql.mjs",
+    "seed:academic:set-university-emails": "node scripts/generate-academic-university-email-sql.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

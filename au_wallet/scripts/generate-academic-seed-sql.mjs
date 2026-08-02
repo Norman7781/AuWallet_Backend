@@ -26,47 +26,11 @@ const OLD_ADMISSION_NUMBERS = [
 ];
 
 const STUDENTS = [
-  [
-    '6899001',
-    'Ms',
-    'Araya',
-    null,
-    'Nopparat',
-    '2006-09-18',
-    'araya.nopparat@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6499002',
-    'Mr',
-    'Kawin',
-    null,
-    'Rattanakul',
-    '2003-04-12',
-    'kawin.rattanakul@students.synthetic-au.test',
-    null,
-  ],
+  ['6899001', 'Ms', 'Araya', null, 'Nopparat', '2006-09-18', null, null],
+  ['6499002', 'Mr', 'Kawin', null, 'Rattanakul', '2003-04-12', null, null],
   ['6399003', 'Ms', 'Lalita', null, 'Chansiri', '2001-08-27', null, null],
-  [
-    '6499004',
-    'Mr',
-    'Thanet',
-    null,
-    'Virojkul',
-    '2002-12-05',
-    'thanet.virojkul@students.synthetic-au.test',
-    null,
-  ],
-  [
-    '6699005',
-    'Ms',
-    'Mali',
-    null,
-    'Suthipong',
-    '2004-06-21',
-    'mali.suthipong@students.synthetic-au.test',
-    null,
-  ],
+  ['6499004', 'Mr', 'Thanet', null, 'Virojkul', '2002-12-05', null, null],
+  ['6699005', 'Ms', 'Mali', null, 'Suthipong', '2004-06-21', null, null],
 ];
 
 const ENROLLMENTS = [
@@ -920,6 +884,17 @@ ${oldTranscriptValues}
     VALUES
 ${studentValues};
 
+    UPDATE academic.student
+    SET university_email = 'u' || admission_no || '@au.test',
+        updated_at = clock_timestamp()
+    WHERE admission_no IN (${newAdmissions})
+      AND university_email IS DISTINCT FROM
+        'u' || admission_no || '@au.test';
+    GET DIAGNOSTICS affected_rows = ROW_COUNT;
+    IF affected_rows <> 5 THEN
+      RAISE EXCEPTION 'Revised fixture university-email assignment count mismatch';
+    END IF;
+
     INSERT INTO academic.student_program_enrollment (
       student_id, program_id, admission_date, academic_status,
       previous_institution_name
@@ -1063,7 +1038,8 @@ ${studentValues}
     ),
     actual AS (
       SELECT admission_no, title, first_name, middle_name, last_name,
-        date_of_birth, university_email, personal_email, passport_number_hmac
+        date_of_birth, NULL::text AS university_email, personal_email,
+        passport_number_hmac
       FROM academic.student
     ),
     missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
@@ -1071,6 +1047,15 @@ ${studentValues}
     SELECT 1 FROM missing UNION ALL SELECT 1 FROM extra
   ) THEN
     RAISE EXCEPTION 'Revised fixture student assertion failed';
+  END IF;
+
+  IF (SELECT count(*) FROM academic.student
+      WHERE admission_no IN (${newAdmissions})
+        AND university_email = 'u' || admission_no || '@au.test') <> 5
+    OR (SELECT count(DISTINCT university_email) FROM academic.student
+        WHERE admission_no IN (${newAdmissions})) <> 5
+  THEN
+    RAISE EXCEPTION 'Revised fixture university-email assertion failed';
   END IF;
 
   IF (SELECT count(*) FROM academic.student
