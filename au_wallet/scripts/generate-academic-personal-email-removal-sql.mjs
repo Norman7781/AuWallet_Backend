@@ -1,9 +1,9 @@
 import { chmodSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { PROGRAM_CODE } from './academic-curriculum-fixture.mjs';
 
 const PROJECT_REF = 'ezsylcmnqbcwvkoqybkd';
-const PROGRAM_CODE = 'SYN-VMES-CSIDS';
-const EXPECTED_FIXTURE_FINGERPRINT = 'f24d2add14b5e56895e18699e10950d1';
+const EXPECTED_FIXTURE_FINGERPRINT = '8ddd18d4633db282f4266e723fe59a73';
 const EXPECTED_OUTPUT = resolve(
   '/tmp/au-wallet-academic-personal-email-removal.sql',
 );
@@ -256,9 +256,9 @@ BEGIN
   IF (SELECT count(*) FROM academic.program) <> 1
     OR (SELECT count(*) FROM academic.student) <> 20
     OR (SELECT count(*) FROM academic.student_program_enrollment) <> 20
-    OR (SELECT count(*) FROM academic.course) <> 54
+    OR (SELECT count(*) FROM academic.course) <> 74
     OR (SELECT count(*) FROM academic.academic_term) <> 12
-    OR (SELECT count(*) FROM academic.course_result) <> 761
+    OR (SELECT count(*) FROM academic.course_result) <> 649
     OR (SELECT count(*) FROM academic.transcript) <> 10
     OR (SELECT count(*) FROM academic.graduation_record) <> 10
   THEN
@@ -369,9 +369,9 @@ BEGIN
   IF (SELECT count(*) FROM academic.program) <> 1
     OR (SELECT count(*) FROM academic.student) <> 20
     OR (SELECT count(*) FROM academic.student_program_enrollment) <> 20
-    OR (SELECT count(*) FROM academic.course) <> 54
+    OR (SELECT count(*) FROM academic.course) <> 74
     OR (SELECT count(*) FROM academic.academic_term) <> 12
-    OR (SELECT count(*) FROM academic.course_result) <> 761
+    OR (SELECT count(*) FROM academic.course_result) <> 649
     OR (SELECT count(*) FROM academic.transcript) <> 10
     OR (SELECT count(*) FROM academic.graduation_record) <> 10
     OR (SELECT count(*) FROM wallet.holder_account) <> 0
@@ -401,7 +401,7 @@ BEGIN
       count(*) FILTER (WHERE result_type = 'seminar')
     )
     FROM academic.course_result
-  ) IS DISTINCT FROM ROW(631::bigint, 18::bigint, 112::bigint)
+  ) IS DISTINCT FROM ROW(631::bigint, 18::bigint, 0::bigint)
   THEN
     RAISE EXCEPTION 'Final course-result distribution assertion failed';
   END IF;

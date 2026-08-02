@@ -1,6 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  COURSES,
+  PROGRAM_CODE,
+  curriculumBlocksFor,
+  mapLegacyCourseCode,
+  mapLegacyTermGroups,
+} from './academic-curriculum-fixture.mjs';
 
 const PASSPORT_ENV_NAMES = [
   'SEED_PASSPORT_DEMO_STU_0001',
@@ -70,73 +77,6 @@ const ENROLLMENTS = [
   ['6699005', '2023-06-05', 'withdrawn', null],
 ];
 
-const COURSES = [
-  ['ELE1101', 'Academic Communication Studio', 3, 'general_education'],
-  ['ELE1201', 'Analytical Reading and Writing', 3, 'general_education'],
-  ['GE1101', 'Quantitative Reasoning', 3, 'general_education'],
-  ['GE1201', 'Science, Society and Sustainability', 2, 'general_education'],
-  ['GE1301', 'Global Citizenship and Cultures', 2, 'general_education'],
-  ['GE2101', 'Ethics in Contemporary Life', 2, 'general_education'],
-  ['GE2201', 'Creative Inquiry and Design', 3, 'general_education'],
-  ['GE2301', 'Thai Society in Global Context', 3, 'general_education'],
-  [
-    'GE2401',
-    'Community Engagement and Service Learning',
-    2,
-    'general_education',
-  ],
-  ['BBA1101', 'Organizational Foundations', 2, 'business_core'],
-  ['BBA1201', 'Economics for Digital Ventures', 3, 'business_core'],
-  ['BBA1301', 'Accounting and Financial Literacy', 3, 'business_core'],
-  ['BBA1401', 'Innovation, Law and Entrepreneurship', 3, 'business_core'],
-  ['BBA1501', 'Digital Venture Workshop', 2, 'business_core'],
-  ['CSX2101', 'Computational Problem Solving I', 3, 'computing_core'],
-  ['CSX2102', 'Computational Problem Solving II', 3, 'computing_core'],
-  ['CSX2201', 'Discrete Structures for Computing', 3, 'computing_core'],
-  ['CSX2202', 'Data Organization and Algorithms', 3, 'computing_core'],
-  ['ITX2101', 'Computer Systems Fundamentals', 3, 'computing_core'],
-  ['ITX2201', 'Networked Systems Principles', 3, 'computing_core'],
-  ['ITX2301', 'Data Management Foundations', 3, 'computing_core'],
-  ['ITX2302', 'Operating Platforms and Concurrency', 3, 'computing_core'],
-  ['CSX3101', 'Software Construction Methods', 3, 'computing_core'],
-  ['ITX3101', 'Human-Centered Interface Engineering', 3, 'computing_core'],
-  ['ITX3201', 'Web Systems Engineering', 3, 'computing_core'],
-  ['CSX3201', 'Secure Computing Foundations', 3, 'computing_core'],
-  ['ITX3301', 'Cloud-Native Systems', 3, 'computing_core'],
-  ['CSX3301', 'Programming Language Concepts', 3, 'computing_core'],
-  [
-    'CSX3401',
-    'Mathematical Methods for Intelligent Systems',
-    3,
-    'major_required',
-  ],
-  ['CSX3402', 'Statistical Modeling for Computing', 3, 'major_required'],
-  ['CSX4101', 'Foundations of Artificial Intelligence', 3, 'major_required'],
-  ['CSX4102', 'Applied Machine Learning', 3, 'major_required'],
-  ['ITX4101', 'Data Engineering Pipelines', 3, 'major_required'],
-  ['CSX4301', 'Information Visualization', 3, 'major_required'],
-  ['CSX4302', 'Decision Analytics', 3, 'major_required'],
-  ['CSX4401', 'Responsible Data Practice', 3, 'major_required'],
-  ['CSX4402', 'Research Methods in Computing', 3, 'major_required'],
-  ['CSX4501', 'Capstone Studio I', 3, 'major_required'],
-  ['CSX4502', 'Capstone Studio II', 3, 'major_required'],
-  ['ITX4301', 'Applied Informatics Integration', 3, 'major_required'],
-  ['CSX4701', 'Natural Language Systems', 3, 'major_elective'],
-  ['CSX4702', 'Vision and Multimedia Analytics', 3, 'major_elective'],
-  ['CSX4703', 'Recommender and Personalization Systems', 3, 'major_elective'],
-  ['ITX4701', 'Cyber Risk Analytics', 3, 'major_elective'],
-  ['ITX4702', 'Distributed Data Platforms', 3, 'major_elective'],
-  ['CSX4704', 'Emerging Topics in Informatics', 3, 'major_elective'],
-  ['BG14901', 'Professional Responsibility Seminar I', 0, 'seminar'],
-  ['BG14902', 'Professional Responsibility Seminar II', 0, 'seminar'],
-  ['BG14903', 'Professional Responsibility Seminar III', 0, 'seminar'],
-  ['BG14904', 'Professional Responsibility Seminar IV', 0, 'seminar'],
-  ['BG14905', 'Professional Responsibility Seminar V', 0, 'seminar'],
-  ['BG14906', 'Professional Responsibility Seminar VI', 0, 'seminar'],
-  ['BG14907', 'Professional Responsibility Seminar VII', 0, 'seminar'],
-  ['BG14908', 'Professional Responsibility Seminar VIII', 0, 'seminar'],
-];
-
 const TERMS = [
   ['2020/02', 2020, 2, 'Academic Year 2020 Semester 2'],
   ['2021/01', 2021, 1, 'Academic Year 2021 Semester 1'],
@@ -152,165 +92,83 @@ const TERMS = [
   ['2025/02', 2025, 2, 'Academic Year 2025 Semester 2'],
 ];
 
-const COMPLETE_TERM_COURSES = [
-  [
-    '2021/01',
-    ['ELE1101', 'ELE1201', 'GE1101', 'GE2201', 'GE1201', 'GE1301', 'BG14901'],
-  ],
-  [
-    '2021/02',
-    ['GE2301', 'BBA1201', 'BBA1301', 'BBA1401', 'GE2101', 'GE2401', 'BG14902'],
-  ],
-  [
-    '2022/01',
-    [
-      'CSX2101',
-      'CSX2102',
-      'CSX2201',
-      'CSX2202',
-      'ITX2101',
-      'BBA1101',
-      'BG14903',
-    ],
-  ],
-  [
-    '2022/02',
-    [
-      'ITX2201',
-      'ITX2301',
-      'ITX2302',
-      'CSX3101',
-      'ITX3101',
-      'BBA1501',
-      'BG14904',
-    ],
-  ],
-  [
-    '2023/01',
-    [
-      'ITX3201',
-      'CSX3201',
-      'ITX3301',
-      'CSX3301',
-      'CSX3401',
-      'CSX3402',
-      'BG14905',
-    ],
-  ],
-  [
-    '2023/02',
-    [
-      'CSX4101',
-      'CSX4102',
-      'ITX4101',
-      'CSX4301',
-      'CSX4302',
-      'CSX4401',
-      'BG14906',
-    ],
-  ],
-  [
-    '2024/01',
-    ['CSX4402', 'CSX4501', 'CSX4502', 'ITX4301', 'CSX4701', 'BG14907'],
-  ],
-  [
-    '2024/02',
-    ['CSX4702', 'CSX4703', 'ITX4701', 'ITX4702', 'CSX4704', 'BG14908'],
-  ],
+const COMPLETE_TERMS = [
+  '2021/01',
+  '2021/02',
+  '2022/01',
+  '2022/02',
+  '2023/01',
+  '2023/02',
+  '2024/01',
+  '2024/02',
 ];
 
+function completeTermCoursesFor(admissionNo) {
+  return curriculumBlocksFor(admissionNo).map((courseCodes, index) => [
+    COMPLETE_TERMS[index],
+    courseCodes,
+  ]);
+}
+
 const GRADUATE_GRADES = [
-  ['A', 'A-', 'B+', 'A', 'A', 'A', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'A-', 'A-', 'S'],
-  ['B+', 'A', 'A-', 'B+', 'A', 'B+', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'B+', 'B', 'S'],
-  ['B', 'B', 'A', 'A-', 'B+', 'A', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'B+', 'B', 'S'],
-  ['A', 'A-', 'B', 'B', 'A', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'B', 'S'],
+  ['A', 'A-', 'B+', 'A', 'A', 'A'],
+  ['A-', 'B+', 'A', 'A-', 'A-', 'A-'],
+  ['B+', 'A', 'A-', 'B+', 'A', 'B+'],
+  ['A-', 'B+', 'A', 'A-', 'B+', 'B'],
+  ['B', 'B', 'A', 'A-', 'B+', 'A'],
+  ['A-', 'B+', 'A', 'A-', 'B+', 'B'],
+  ['A', 'A-', 'B', 'B', 'A'],
+  ['A-', 'B+', 'A', 'A-', 'B'],
 ];
 
 const AWAITING_GRADES = [
-  ['A', 'A-', 'B+', 'B', 'A', 'A-', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'B+', 'B+', 'S'],
-  ['B+', 'B', 'A-', 'B+', 'A', 'B', 'S'],
-  ['A-', 'B+', 'B', 'A-', 'B+', 'C+', 'S'],
-  ['B', 'B', 'A', 'A-', 'B+', 'B', 'S'],
-  ['A-', 'B+', 'A', 'A-', 'B+', 'B', 'S'],
-  ['B+', 'B', 'B-', 'B', 'A', 'S'],
-  ['A-', 'B+', 'B-', 'B+', 'B', 'S'],
+  ['A', 'A-', 'B+', 'B', 'A', 'A-'],
+  ['A-', 'B+', 'A', 'A-', 'B+', 'B+'],
+  ['B+', 'B', 'A-', 'B+', 'A', 'B'],
+  ['A-', 'B+', 'B', 'A-', 'B+', 'C+'],
+  ['B', 'B', 'A', 'A-', 'B+', 'B'],
+  ['A-', 'B+', 'A', 'A-', 'B+', 'B'],
+  ['B+', 'B', 'B-', 'B', 'A'],
+  ['A-', 'B+', 'B-', 'B+', 'B'],
 ];
 
-const ALUMNUS_TERM_COURSES = [
-  ['2020/02', ['GE2201', 'GE2301', 'BBA1301', 'BBA1401', 'CSX2201', 'BG14901']],
-  [
-    '2021/01',
-    ['CSX2202', 'ITX2101', 'ITX2201', 'ITX2301', 'GE1201', 'BG14902'],
-  ],
+const LEGACY_ALUMNUS_TERM_COURSES = [
+  ['2020/02', ['GE2201', 'GE2301', 'BBA1301', 'BBA1401', 'CSX2201']],
+  ['2021/01', ['CSX2202', 'ITX2101', 'ITX2201', 'ITX2301', 'GE1201']],
   [
     '2021/02',
-    [
-      'ITX2302',
-      'CSX3101',
-      'ITX3101',
-      'ITX3201',
-      'CSX3201',
-      'GE1301',
-      'BG14903',
-    ],
+    ['ITX2302', 'CSX3101', 'ITX3101', 'ITX3201', 'CSX3201', 'GE1301'],
   ],
-  ['2021/03', ['GE2101', 'BG14904']],
+  ['2021/03', ['GE2101']],
   [
     '2022/01',
-    [
-      'ITX3301',
-      'CSX3301',
-      'CSX3401',
-      'CSX3402',
-      'CSX4101',
-      'CSX4102',
-      'BG14905',
-    ],
+    ['ITX3301', 'CSX3301', 'CSX3401', 'CSX3402', 'CSX4101', 'CSX4102'],
   ],
   [
     '2022/02',
-    [
-      'ITX4101',
-      'CSX4301',
-      'CSX4302',
-      'CSX4401',
-      'CSX4402',
-      'CSX4501',
-      'BG14906',
-    ],
+    ['ITX4101', 'CSX4301', 'CSX4302', 'CSX4401', 'CSX4402', 'CSX4501'],
   ],
-  [
-    '2023/01',
-    ['CSX4502', 'ITX4301', 'CSX4701', 'CSX4702', 'CSX4703', 'BG14907'],
-  ],
+  ['2023/01', ['CSX4502', 'ITX4301', 'CSX4701', 'CSX4702', 'CSX4703']],
   [
     '2023/02',
-    [
-      'ITX4701',
-      'ITX4702',
-      'CSX4704',
-      'BBA1101',
-      'GE2401',
-      'BBA1501',
-      'BG14908',
-    ],
+    ['ITX4701', 'ITX4702', 'CSX4704', 'BBA1101', 'GE2401', 'BBA1501'],
   ],
 ];
 
+const ALUMNUS_TERM_COURSES = mapLegacyTermGroups(
+  '6399003',
+  LEGACY_ALUMNUS_TERM_COURSES,
+);
+
 const ALUMNUS_GRADES = [
-  ['A', 'A-', 'B+', 'A', 'A-', 'S'],
-  ['B+', 'A', 'A-', 'B+', 'A', 'S'],
-  ['A', 'A-', 'B+', 'A', 'A-', 'A-', 'S'],
-  ['B+', 'S'],
-  ['B+', 'A', 'A-', 'B+', 'B', 'B', 'S'],
-  ['A', 'A-', 'B+', 'B', 'A', 'A-', 'S'],
-  ['B+', 'B', 'A', 'A-', 'B+', 'S'],
-  ['A', 'A-', 'B', 'A', 'A-', 'B', 'S'],
+  ['A', 'A-', 'B+', 'A', 'A-'],
+  ['B+', 'A', 'A-', 'B+', 'A'],
+  ['A', 'A-', 'B+', 'A', 'A-', 'A-'],
+  ['B+'],
+  ['B+', 'A', 'A-', 'B+', 'B', 'B'],
+  ['A', 'A-', 'B+', 'B', 'A', 'A-'],
+  ['B+', 'B', 'A', 'A-', 'B+'],
+  ['A', 'A-', 'B', 'A', 'A-', 'B'],
 ];
 
 const COURSE_BY_CODE = new Map(COURSES.map((course) => [course[0], course]));
@@ -328,7 +186,7 @@ function addTermResults(admissionNo, termCourseGroups, gradeGroups) {
         fail(`Unknown course code in result allocation: ${courseCode}`);
       }
       const grade = grades[courseIndex];
-      const resultType = course[2] === 0 ? 'seminar' : 'normal';
+      const resultType = 'normal';
       COURSE_RESULTS.push([
         admissionNo,
         termCode,
@@ -341,10 +199,10 @@ function addTermResults(admissionNo, termCourseGroups, gradeGroups) {
   });
 }
 
-addTermResults('6499002', COMPLETE_TERM_COURSES, GRADUATE_GRADES);
-addTermResults('6499004', COMPLETE_TERM_COURSES, AWAITING_GRADES);
+addTermResults('6499002', completeTermCoursesFor('6499002'), GRADUATE_GRADES);
+addTermResults('6499004', completeTermCoursesFor('6499004'), AWAITING_GRADES);
 
-for (const courseCode of [
+for (const legacyCourseCode of [
   'ELE1101',
   'ELE1201',
   'GE1101',
@@ -352,33 +210,31 @@ for (const courseCode of [
   'CSX2101',
   'CSX2102',
 ]) {
+  const courseCode = mapLegacyCourseCode('6399003', legacyCourseCode);
   COURSE_RESULTS.push(['6399003', null, courseCode, 3, 'TR', 'transfer']);
 }
 addTermResults('6399003', ALUMNUS_TERM_COURSES, ALUMNUS_GRADES);
 
 addTermResults(
   '6899001',
+  mapLegacyTermGroups('6899001', [
+    ['2025/01', ['ELE1101', 'ELE1201', 'GE1101', 'GE1201', 'GE1301']],
+    ['2025/02', ['GE2101', 'GE2201', 'GE2301', 'GE2401', 'BBA1101']],
+  ]),
   [
-    [
-      '2025/01',
-      ['ELE1101', 'ELE1201', 'GE1101', 'GE1201', 'GE1301', 'BG14901'],
-    ],
-    ['2025/02', ['GE2101', 'GE2201', 'GE2301', 'GE2401', 'BBA1101', 'BG14902']],
-  ],
-  [
-    ['B+', 'A-', 'B', 'A', 'A-', 'S'],
-    ['B+', 'B', 'A-', 'B+', 'B', 'S'],
+    ['B+', 'A-', 'B', 'A', 'A-'],
+    ['B+', 'B', 'A-', 'B+', 'B'],
   ],
 );
 
 addTermResults(
   '6699005',
-  [
-    ['2023/01', ['ELE1101', 'ELE1201', 'GE1101', 'GE1201', 'BG14901']],
+  mapLegacyTermGroups('6699005', [
+    ['2023/01', ['ELE1101', 'ELE1201', 'GE1101', 'GE1201']],
     ['2023/02', ['GE1301', 'GE2101', 'GE2201', 'GE2301']],
-  ],
+  ]),
   [
-    ['C+', 'B-', 'B', 'C', 'S'],
+    ['C+', 'B-', 'B', 'C'],
     ['B', 'C+', 'B-', 'C'],
   ],
 );
@@ -546,7 +402,7 @@ function validateFixtureModel() {
   const termCodes = new Set(TERMS.map((term) => term[0]));
   if (
     admissionNumbers.size !== 5 ||
-    courseCodes.size !== 54 ||
+    courseCodes.size !== 74 ||
     termCodes.size !== 12
   ) {
     fail('Fixture natural keys are not unique');
@@ -560,19 +416,19 @@ function validateFixtureModel() {
   }
   const catalogCredits = COURSES.reduce((sum, course) => sum + course[2], 0);
   if (
-    creditDistribution.get(3) !== 40 ||
-    creditDistribution.get(2) !== 6 ||
-    creditDistribution.get(0) !== 8 ||
-    catalogCredits !== 132
+    creditDistribution.get(3) !== 66 ||
+    creditDistribution.get(2) !== 8 ||
+    creditDistribution.has(0) ||
+    catalogCredits !== 214
   ) {
     fail('Catalog credit assertions failed');
   }
   const expected = new Map([
-    ['6899001', [12, 10, 0, 2, 25]],
-    ['6499002', [54, 46, 0, 8, 132]],
-    ['6399003', [54, 40, 6, 8, 114]],
-    ['6499004', [54, 46, 0, 8, 132]],
-    ['6699005', [9, 8, 0, 1, 21]],
+    ['6899001', [10, 10, 0, 0, 25]],
+    ['6499002', [46, 46, 0, 0, 132]],
+    ['6399003', [46, 40, 6, 0, 114]],
+    ['6499004', [46, 46, 0, 0, 132]],
+    ['6699005', [8, 8, 0, 0, 21]],
   ]);
   const pairs = new Set();
   for (const [
@@ -600,11 +456,11 @@ function validateFixtureModel() {
     if (resultType === 'transfer' && (grade !== 'TR' || termCode !== null)) {
       fail('Transfer result contract failed');
     }
-    if (resultType === 'seminar' && (grade !== 'S' || credits !== 0)) {
-      fail('Seminar result contract failed');
+    if (!['normal', 'transfer'].includes(resultType)) {
+      fail('Unexpected course-result type');
     }
   }
-  if (COURSE_RESULTS.length !== 183) {
+  if (COURSE_RESULTS.length !== 156) {
     fail('Global course-result count assertion failed');
   }
   for (const [admissionNo, expectedValues] of expected) {
@@ -629,7 +485,7 @@ function validateFixtureModel() {
   if (
     typeCounts.get('normal') !== 150 ||
     typeCounts.get('transfer') !== 6 ||
-    typeCounts.get('seminar') !== 27
+    (typeCounts.get('seminar') ?? 0) !== 0
   ) {
     fail('Course-result type count assertion failed');
   }
@@ -874,7 +730,7 @@ BEGIN
   INTO old_any;
 
   SELECT
-    EXISTS (SELECT 1 FROM academic.program WHERE program_code = 'SYN-VMES-CSIDS')
+    EXISTS (SELECT 1 FROM academic.program WHERE program_code = '${PROGRAM_CODE}')
     OR EXISTS (SELECT 1 FROM academic.student WHERE admission_no IN (${newAdmissions}))
     OR EXISTS (SELECT 1 FROM academic.academic_term WHERE term_code IN (${termCodes}))
     OR EXISTS (
@@ -1053,8 +909,8 @@ ${oldTranscriptValues}
       major, major_concentration, required_credits, is_active
     ) VALUES (
       'VMES', 'Vincent Mary School of Engineering, Science and Technology',
-      'SYN-VMES-CSIDS', 'bachelor', 'Bachelor of Science', 'Computer Science',
-      'Informatics and Data Science', 132::numeric, true
+      '${PROGRAM_CODE}', 'bachelor', 'Bachelor of Science', 'Computer Science',
+      NULL, 132::numeric, true
     );
 
     INSERT INTO academic.student (
@@ -1075,7 +931,7 @@ ${studentValues};
 ${enrollmentValues}
     ) AS fixture(admission_no, admission_date, academic_status, previous_institution_name)
     JOIN academic.student AS student ON student.admission_no = fixture.admission_no
-    JOIN academic.program AS program ON program.program_code = 'SYN-VMES-CSIDS';
+    JOIN academic.program AS program ON program.program_code = '${PROGRAM_CODE}';
 
     INSERT INTO academic.course (
       program_id, course_code, course_title, default_credits, course_category,
@@ -1087,7 +943,7 @@ ${enrollmentValues}
       VALUES
 ${courseValues}
     ) AS fixture(course_code, course_title, default_credits, course_category)
-    JOIN academic.program AS program ON program.program_code = 'SYN-VMES-CSIDS';
+    JOIN academic.program AS program ON program.program_code = '${PROGRAM_CODE}';
 
     INSERT INTO academic.academic_term (
       term_code, academic_year, semester_no, term_label
@@ -1109,7 +965,7 @@ ${resultValues}
       ON enrollment.student_id = student.student_id
     JOIN academic.program AS program
       ON program.program_id = enrollment.program_id
-     AND program.program_code = 'SYN-VMES-CSIDS'
+     AND program.program_code = '${PROGRAM_CODE}'
     JOIN academic.course AS course
       ON course.program_id = program.program_id
      AND course.course_code = fixture.course_code
@@ -1137,7 +993,7 @@ ${graduationValues}
       ON enrollment.student_id = student.student_id
     JOIN academic.program AS program
       ON program.program_id = enrollment.program_id
-     AND program.program_code = 'SYN-VMES-CSIDS';
+     AND program.program_code = '${PROGRAM_CODE}';
 
     INSERT INTO academic.transcript (
       enrollment_id, document_number, verification_code, issued_on,
@@ -1157,7 +1013,7 @@ ${transcriptValues}
       ON enrollment.student_id = student.student_id
     JOIN academic.program AS program
       ON program.program_id = enrollment.program_id
-     AND program.program_code = 'SYN-VMES-CSIDS';
+     AND program.program_code = '${PROGRAM_CODE}';
 
   ELSIF NOT old_any AND new_any THEN
     -- State B: validation-only no-op. The assertions below require exact equality.
@@ -1172,9 +1028,9 @@ ${transcriptValues}
   IF (SELECT count(*) FROM academic.program) <> 1
     OR (SELECT count(*) FROM academic.student) <> 5
     OR (SELECT count(*) FROM academic.student_program_enrollment) <> 5
-    OR (SELECT count(*) FROM academic.course) <> 54
+    OR (SELECT count(*) FROM academic.course) <> 74
     OR (SELECT count(*) FROM academic.academic_term) <> 12
-    OR (SELECT count(*) FROM academic.course_result) <> 183
+    OR (SELECT count(*) FROM academic.course_result) <> 156
     OR (SELECT count(*) FROM academic.transcript) <> 3
     OR (SELECT count(*) FROM academic.graduation_record) <> 3
     OR (SELECT count(*) FROM wallet.holder_account) <> 0
@@ -1188,11 +1044,11 @@ ${transcriptValues}
     SELECT 1 FROM academic.program
     WHERE faculty_code = 'VMES'
       AND faculty_name = 'Vincent Mary School of Engineering, Science and Technology'
-      AND program_code = 'SYN-VMES-CSIDS'
+      AND program_code = '${PROGRAM_CODE}'
       AND degree_level = 'bachelor'
       AND degree_name = 'Bachelor of Science'
       AND major = 'Computer Science'
-      AND major_concentration = 'Informatics and Data Science'
+      AND major_concentration IS NULL
       AND required_credits = 132::numeric
       AND is_active
   ) THEN
@@ -1236,7 +1092,7 @@ ${enrollmentValues}
       FROM academic.student_program_enrollment AS enrollment
       JOIN academic.student AS student ON student.student_id = enrollment.student_id
       JOIN academic.program AS program ON program.program_id = enrollment.program_id
-      WHERE program.program_code = 'SYN-VMES-CSIDS'
+      WHERE program.program_code = '${PROGRAM_CODE}'
     ),
     missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
     extra AS (SELECT * FROM actual EXCEPT SELECT * FROM expected)
@@ -1255,7 +1111,7 @@ ${courseValues}
         course.course_category
       FROM academic.course AS course
       JOIN academic.program AS program ON program.program_id = course.program_id
-      WHERE program.program_code = 'SYN-VMES-CSIDS' AND course.is_active
+      WHERE program.program_code = '${PROGRAM_CODE}' AND course.is_active
     ),
     missing AS (SELECT * FROM expected EXCEPT SELECT * FROM actual),
     extra AS (SELECT * FROM actual EXCEPT SELECT * FROM expected)
@@ -1275,8 +1131,8 @@ ${courseValues}
     )
     FROM academic.course AS course
     JOIN academic.program AS program ON program.program_id = course.program_id
-    WHERE program.program_code = 'SYN-VMES-CSIDS' AND course.is_active
-  ) IS DISTINCT FROM ROW(54::bigint, 40::bigint, 6::bigint, 8::bigint, 132::numeric, 54::bigint)
+    WHERE program.program_code = '${PROGRAM_CODE}' AND course.is_active
+  ) IS DISTINCT FROM ROW(74::bigint, 66::bigint, 8::bigint, 0::bigint, 214::numeric, 74::bigint)
   THEN
     RAISE EXCEPTION 'Revised fixture catalog aggregate assertion failed';
   END IF;
@@ -1327,7 +1183,7 @@ ${resultValues}
       count(*) FILTER (WHERE result_type = 'seminar')
     )
     FROM academic.course_result
-  ) IS DISTINCT FROM ROW(150::bigint, 6::bigint, 27::bigint)
+  ) IS DISTINCT FROM ROW(150::bigint, 6::bigint, 0::bigint)
   THEN
     RAISE EXCEPTION 'Revised fixture result-type assertion failed';
   END IF;
@@ -1362,15 +1218,11 @@ ${resultValues}
     RAISE EXCEPTION 'Transfer result assertion failed';
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM academic.course_result
-    WHERE result_type = 'seminar'
-      AND (grade <> 'S' OR credits <> 0::numeric)
-  ) OR (
+  IF (
     SELECT count(*) FROM academic.course_result
     WHERE result_type = 'seminar'
-  ) <> 27 THEN
-    RAISE EXCEPTION 'Seminar result assertion failed';
+  ) <> 0 THEN
+    RAISE EXCEPTION 'Unexpected seminar result assertion failed';
   END IF;
 
   IF EXISTS (
@@ -1398,11 +1250,11 @@ ${resultValues}
   IF EXISTS (
     WITH expected(admission_no, result_count, completed_credits) AS (
       VALUES
-        ('6899001'::text, 12::bigint, 25::numeric),
-        ('6499002'::text, 54::bigint, 132::numeric),
-        ('6399003'::text, 54::bigint, 114::numeric),
-        ('6499004'::text, 54::bigint, 132::numeric),
-        ('6699005'::text, 9::bigint, 21::numeric)
+        ('6899001'::text, 10::bigint, 25::numeric),
+        ('6499002'::text, 46::bigint, 132::numeric),
+        ('6399003'::text, 46::bigint, 114::numeric),
+        ('6499004'::text, 46::bigint, 132::numeric),
+        ('6699005'::text, 8::bigint, 21::numeric)
     ),
     actual AS (
       SELECT student.admission_no, count(*)::bigint AS result_count,
@@ -1593,8 +1445,8 @@ function main() {
     [
       'Generated protected synthetic academic replacement SQL.',
       `Output: ${outputPath}`,
-      'Planned rows: program=1, student=5, enrollment=5, course=54, academic_term=12.',
-      'Planned rows: course_result=183, transcript=3, graduation_record=3.',
+      'Planned rows: program=1, student=5, enrollment=5, course=74, academic_term=12.',
+      'Planned rows: course_result=156, transcript=3, graduation_record=3.',
       'No database statements were executed.',
     ].join('\n') + '\n',
   );

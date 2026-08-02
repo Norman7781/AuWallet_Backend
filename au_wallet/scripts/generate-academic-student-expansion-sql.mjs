@@ -1,10 +1,16 @@
 import { createHmac } from 'node:crypto';
 import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  COURSES,
+  PROGRAM_CODE,
+  curriculumBlocksFor,
+  mapLegacyCourseCode,
+  mapLegacyTermGroups,
+} from './academic-curriculum-fixture.mjs';
 
 const PROJECT_REF = 'ezsylcmnqbcwvkoqybkd';
-const PROGRAM_CODE = 'SYN-VMES-CSIDS';
-const BASE_FIXTURE_FINGERPRINT = 'a7021a4a8752e8f074fa70ac6c8136d3';
+const BASE_FIXTURE_FINGERPRINT = 'da91906a3f834c358cb219f9756eb2c0';
 const BASE_ADMISSIONS = ['6899001', '6499002', '6399003', '6499004', '6699005'];
 
 const STUDENTS = [
@@ -133,34 +139,23 @@ const ENROLLMENTS = [
   ['6499025', '2021-06-07', 'withdrawn', null],
 ];
 
-const CURRICULUM_BLOCKS = [
-  ['ELE1101', 'ELE1201', 'GE1101', 'GE2201', 'GE1201', 'GE1301', 'BG14901'],
-  ['GE2301', 'BBA1201', 'BBA1301', 'BBA1401', 'GE2101', 'GE2401', 'BG14902'],
-  ['CSX2101', 'CSX2102', 'CSX2201', 'CSX2202', 'ITX2101', 'BBA1101', 'BG14903'],
-  ['ITX2201', 'ITX2301', 'ITX2302', 'CSX3101', 'ITX3101', 'BBA1501', 'BG14904'],
-  ['ITX3201', 'CSX3201', 'ITX3301', 'CSX3301', 'CSX3401', 'CSX3402', 'BG14905'],
-  ['CSX4101', 'CSX4102', 'ITX4101', 'CSX4301', 'CSX4302', 'CSX4401', 'BG14906'],
-  ['CSX4402', 'CSX4501', 'CSX4502', 'ITX4301', 'CSX4701', 'BG14907'],
-  ['CSX4702', 'CSX4703', 'ITX4701', 'ITX4702', 'CSX4704', 'BG14908'],
+const LEGACY_CURRENT_BLOCKS = [
+  ['ELE1101', 'ELE1201', 'GE1101', 'GE1201', 'GE1301'],
+  ['GE2101', 'GE2201', 'GE2301', 'GE2401', 'BBA1101'],
 ];
 
-const CURRENT_BLOCKS = [
-  ['ELE1101', 'ELE1201', 'GE1101', 'GE1201', 'GE1301', 'BG14901'],
-  ['GE2101', 'GE2201', 'GE2301', 'GE2401', 'BBA1101', 'BG14902'],
+const LEGACY_TRANSFER_BLOCKS = [
+  ['GE2201', 'GE2301', 'BBA1301', 'BBA1401', 'CSX2201'],
+  ['CSX2202', 'ITX2101', 'ITX2201', 'ITX2301', 'GE1201'],
+  ['ITX2302', 'CSX3101', 'ITX3101', 'ITX3201', 'CSX3201', 'GE1301'],
+  ['GE2101'],
+  ['ITX3301', 'CSX3301', 'CSX3401', 'CSX3402', 'CSX4101', 'CSX4102'],
+  ['ITX4101', 'CSX4301', 'CSX4302', 'CSX4401', 'CSX4402', 'CSX4501'],
+  ['CSX4502', 'ITX4301', 'CSX4701', 'CSX4702', 'CSX4703'],
+  ['ITX4701', 'ITX4702', 'CSX4704', 'BBA1101', 'GE2401', 'BBA1501'],
 ];
 
-const TRANSFER_BLOCKS = [
-  ['GE2201', 'GE2301', 'BBA1301', 'BBA1401', 'CSX2201', 'BG14901'],
-  ['CSX2202', 'ITX2101', 'ITX2201', 'ITX2301', 'GE1201', 'BG14902'],
-  ['ITX2302', 'CSX3101', 'ITX3101', 'ITX3201', 'CSX3201', 'GE1301', 'BG14903'],
-  ['GE2101', 'BG14904'],
-  ['ITX3301', 'CSX3301', 'CSX3401', 'CSX3402', 'CSX4101', 'CSX4102', 'BG14905'],
-  ['ITX4101', 'CSX4301', 'CSX4302', 'CSX4401', 'CSX4402', 'CSX4501', 'BG14906'],
-  ['CSX4502', 'ITX4301', 'CSX4701', 'CSX4702', 'CSX4703', 'BG14907'],
-  ['ITX4701', 'ITX4702', 'CSX4704', 'BBA1101', 'GE2401', 'BBA1501', 'BG14908'],
-];
-
-const TRANSFER_COURSES = [
+const LEGACY_TRANSFER_COURSES = [
   'ELE1101',
   'ELE1201',
   'GE1101',
@@ -168,14 +163,7 @@ const TRANSFER_COURSES = [
   'CSX2101',
   'CSX2102',
 ];
-const TWO_CREDIT_COURSES = new Set([
-  'GE1201',
-  'GE1301',
-  'GE2101',
-  'GE2401',
-  'BBA1101',
-  'BBA1501',
-]);
+const COURSE_BY_CODE = new Map(COURSES.map((course) => [course[0], course]));
 const APPROVED_TERMS = new Set([
   '2020/02',
   '2021/01',
@@ -235,9 +223,9 @@ function fail(message) {
 }
 
 function creditsFor(courseCode) {
-  if (courseCode.startsWith('BG149')) return 0;
-  if (TWO_CREDIT_COURSES.has(courseCode)) return 2;
-  return 3;
+  const course = COURSE_BY_CODE.get(courseCode);
+  if (!course) fail(`Unknown curriculum course: ${courseCode}`);
+  return course[2];
 }
 
 function addBlockResults(admissionNo, blocks, terms, patternIndex, offset = 0) {
@@ -249,79 +237,134 @@ function addBlockResults(admissionNo, blocks, terms, patternIndex, offset = 0) {
   blocks.forEach((courseCodes, blockIndex) => {
     courseCodes.forEach((courseCode) => {
       const credits = creditsFor(courseCode);
-      const seminar = credits === 0;
       RESULTS.push([
         admissionNo,
         terms[blockIndex],
         courseCode,
         credits,
-        seminar ? 'S' : pattern[gradedIndex++ % pattern.length],
-        seminar ? 'seminar' : 'normal',
+        pattern[gradedIndex++ % pattern.length],
+        'normal',
       ]);
     });
   });
 }
 
 function addTransferResults(admissionNo, patternIndex, offset = 0) {
-  TRANSFER_COURSES.forEach((courseCode) => {
+  LEGACY_TRANSFER_COURSES.map((courseCode) =>
+    mapLegacyCourseCode(admissionNo, courseCode),
+  ).forEach((courseCode) => {
     RESULTS.push([admissionNo, null, courseCode, 3, 'TR', 'transfer']);
   });
   addBlockResults(
     admissionNo,
-    TRANSFER_BLOCKS,
+    mapLegacyTermGroups(
+      admissionNo,
+      LEGACY_TRANSFER_BLOCKS.map((courseCodes, index) => [
+        FULL_2020_TERMS[index],
+        courseCodes,
+      ]),
+    ).map(([, courseCodes]) => courseCodes),
     FULL_2020_TERMS,
     patternIndex,
     offset,
   );
 }
 
-addBlockResults('6899011', CURRENT_BLOCKS, ['2025/01', '2025/02'], 0, 2);
+addBlockResults(
+  '6899011',
+  mapLegacyTermGroups(
+    '6899011',
+    LEGACY_CURRENT_BLOCKS.map((courseCodes, index) => [
+      ['2025/01', '2025/02'][index],
+      courseCodes,
+    ]),
+  ).map(([, courseCodes]) => courseCodes),
+  ['2025/01', '2025/02'],
+  0,
+  2,
+);
 addBlockResults(
   '6799012',
-  CURRICULUM_BLOCKS.slice(0, 4),
+  curriculumBlocksFor('6799012').slice(0, 4),
   ['2024/01', '2024/02', '2025/01', '2025/02'],
   1,
   1,
 );
 addBlockResults(
   '6699013',
-  CURRICULUM_BLOCKS.slice(0, 6),
+  curriculumBlocksFor('6699013').slice(0, 6),
   ['2023/01', '2023/02', '2024/01', '2024/02', '2025/01', '2025/02'],
   2,
   3,
 );
 addBlockResults(
   '6499014',
-  CURRICULUM_BLOCKS.slice(0, 7),
+  curriculumBlocksFor('6499014').slice(0, 7),
   ['2021/01', '2021/02', '2022/01', '2022/02', '2023/01', '2024/02', '2025/02'],
   3,
   4,
 );
-addBlockResults('6499015', CURRICULUM_BLOCKS, FULL_2021_TERMS, 0, 0);
-addBlockResults('6499016', CURRICULUM_BLOCKS, FULL_2021_TERMS, 1, 3);
-addBlockResults('6399017', CURRICULUM_BLOCKS, FULL_2020_TERMS, 2, 5);
-addBlockResults('6399018', CURRICULUM_BLOCKS, FULL_2020_TERMS, 3, 2);
+addBlockResults(
+  '6499015',
+  curriculumBlocksFor('6499015'),
+  FULL_2021_TERMS,
+  0,
+  0,
+);
+addBlockResults(
+  '6499016',
+  curriculumBlocksFor('6499016'),
+  FULL_2021_TERMS,
+  1,
+  3,
+);
+addBlockResults(
+  '6399017',
+  curriculumBlocksFor('6399017'),
+  FULL_2020_TERMS,
+  2,
+  5,
+);
+addBlockResults(
+  '6399018',
+  curriculumBlocksFor('6399018'),
+  FULL_2020_TERMS,
+  3,
+  2,
+);
 addTransferResults('6399019', 0, 7);
 addTransferResults('6399020', 2, 4);
-addBlockResults('6499021', CURRICULUM_BLOCKS, FULL_2021_TERMS, 4, 1);
-addBlockResults('6899022', CURRICULUM_BLOCKS.slice(0, 1), ['2025/01'], 4, 0);
+addBlockResults(
+  '6499021',
+  curriculumBlocksFor('6499021'),
+  FULL_2021_TERMS,
+  4,
+  1,
+);
+addBlockResults(
+  '6899022',
+  curriculumBlocksFor('6899022').slice(0, 1),
+  ['2025/01'],
+  4,
+  0,
+);
 addBlockResults(
   '6799023',
-  CURRICULUM_BLOCKS.slice(0, 2),
+  curriculumBlocksFor('6799023').slice(0, 2),
   ['2024/01', '2024/02'],
   3,
   3,
 );
 addBlockResults(
   '6699024',
-  CURRICULUM_BLOCKS.slice(0, 3),
+  curriculumBlocksFor('6699024').slice(0, 3),
   ['2023/01', '2023/02', '2024/01'],
   4,
   6,
 );
 addBlockResults(
   '6499025',
-  CURRICULUM_BLOCKS.slice(0, 4),
+  curriculumBlocksFor('6499025').slice(0, 4),
   ['2021/01', '2021/02', '2022/01', '2022/02'],
   1,
   8,
@@ -623,11 +666,8 @@ function validateFixtureModel() {
     ) {
       fail('Additional transfer result assertion failed');
     }
-    if (
-      resultType === 'seminar' &&
-      (credits !== 0 || grade !== 'S' || termCode === null)
-    ) {
-      fail('Additional seminar result assertion failed');
+    if (!['normal', 'transfer'].includes(resultType)) {
+      fail('Unexpected additional course-result type');
     }
   }
   const typeCounts = new Map();
@@ -635,29 +675,29 @@ function validateFixtureModel() {
     typeCounts.set(result[5], (typeCounts.get(result[5]) ?? 0) + 1),
   );
   if (
-    RESULTS.length !== 578 ||
+    RESULTS.length !== 493 ||
     typeCounts.get('normal') !== 481 ||
     typeCounts.get('transfer') !== 12 ||
-    typeCounts.get('seminar') !== 85
+    (typeCounts.get('seminar') ?? 0) !== 0
   ) {
     fail('Additional result-count assertion failed');
   }
   const expectedSummaries = new Map([
-    ['6899011', [12, 10, 0, 2, 25, 0]],
-    ['6799012', [28, 24, 0, 4, 66, 0]],
-    ['6699013', [42, 36, 0, 6, 102, 0]],
-    ['6499014', [48, 41, 0, 7, 117, 0]],
-    ['6499015', [54, 46, 0, 8, 132, 0]],
-    ['6499016', [54, 46, 0, 8, 132, 0]],
-    ['6399017', [54, 46, 0, 8, 132, 0]],
-    ['6399018', [54, 46, 0, 8, 132, 0]],
-    ['6399019', [54, 40, 6, 8, 114, 18]],
-    ['6399020', [54, 40, 6, 8, 114, 18]],
-    ['6499021', [54, 46, 0, 8, 132, 0]],
-    ['6899022', [7, 6, 0, 1, 16, 0]],
-    ['6799023', [14, 12, 0, 2, 32, 0]],
-    ['6699024', [21, 18, 0, 3, 49, 0]],
-    ['6499025', [28, 24, 0, 4, 66, 0]],
+    ['6899011', [10, 10, 0, 0, 25, 0]],
+    ['6799012', [24, 24, 0, 0, 66, 0]],
+    ['6699013', [36, 36, 0, 0, 102, 0]],
+    ['6499014', [41, 41, 0, 0, 117, 0]],
+    ['6499015', [46, 46, 0, 0, 132, 0]],
+    ['6499016', [46, 46, 0, 0, 132, 0]],
+    ['6399017', [46, 46, 0, 0, 132, 0]],
+    ['6399018', [46, 46, 0, 0, 132, 0]],
+    ['6399019', [46, 40, 6, 0, 114, 18]],
+    ['6399020', [46, 40, 6, 0, 114, 18]],
+    ['6499021', [46, 46, 0, 0, 132, 0]],
+    ['6899022', [6, 6, 0, 0, 16, 0]],
+    ['6799023', [12, 12, 0, 0, 32, 0]],
+    ['6699024', [18, 18, 0, 0, 49, 0]],
+    ['6499025', [24, 24, 0, 0, 66, 0]],
   ]);
   for (const summary of RESULT_SUMMARIES) {
     const expected = expectedSummaries.get(summary[0]);
@@ -932,9 +972,9 @@ BEGIN
     IF (SELECT count(*) FROM academic.program) <> 1
       OR (SELECT count(*) FROM academic.student) <> 5
       OR (SELECT count(*) FROM academic.student_program_enrollment) <> 5
-      OR (SELECT count(*) FROM academic.course) <> 54
+      OR (SELECT count(*) FROM academic.course) <> 74
       OR (SELECT count(*) FROM academic.academic_term) <> 12
-      OR (SELECT count(*) FROM academic.course_result) <> 183
+      OR (SELECT count(*) FROM academic.course_result) <> 156
       OR (SELECT count(*) FROM academic.transcript) <> 3
       OR (SELECT count(*) FROM academic.graduation_record) <> 3
       OR (SELECT count(*) FROM wallet.holder_account) <> 0
@@ -1040,9 +1080,9 @@ ${transcriptValues}
   IF (SELECT count(*) FROM academic.program) <> 1
     OR (SELECT count(*) FROM academic.student) <> 20
     OR (SELECT count(*) FROM academic.student_program_enrollment) <> 20
-    OR (SELECT count(*) FROM academic.course) <> 54
+    OR (SELECT count(*) FROM academic.course) <> 74
     OR (SELECT count(*) FROM academic.academic_term) <> 12
-    OR (SELECT count(*) FROM academic.course_result) <> 761
+    OR (SELECT count(*) FROM academic.course_result) <> 649
     OR (SELECT count(*) FROM academic.transcript) <> 10
     OR (SELECT count(*) FROM academic.graduation_record) <> 10
     OR (SELECT count(*) FROM wallet.holder_account) <> 0
@@ -1136,7 +1176,7 @@ ${resultValues}
       count(*)
     )
     FROM academic.course_result
-  ) IS DISTINCT FROM ROW(631::bigint, 18::bigint, 112::bigint, 761::bigint)
+  ) IS DISTINCT FROM ROW(631::bigint, 18::bigint, 0::bigint, 649::bigint)
   THEN
     RAISE EXCEPTION 'Expanded fixture result-type assertion failed';
   END IF;
@@ -1158,8 +1198,7 @@ ${resultValues}
       AND (grade <> 'TR' OR academic_term_id IS NOT NULL)
   ) OR EXISTS (
     SELECT 1 FROM academic.course_result
-    WHERE result_type = 'seminar'
-      AND (grade <> 'S' OR credits <> 0::numeric OR academic_term_id IS NULL)
+    WHERE result_type NOT IN ('normal', 'transfer')
   ) THEN
     RAISE EXCEPTION 'Expanded fixture result relationship assertion failed';
   END IF;
@@ -1394,9 +1433,9 @@ function main() {
     [
       'Generated protected synthetic academic student expansion SQL.',
       `Output: ${outputPath}`,
-      'Additional rows: student=15, enrollment=15, course_result=578.',
+      'Additional rows: student=15, enrollment=15, course_result=493.',
       'Additional rows: graduation_record=7, transcript=7.',
-      'Final rows: student=20, enrollment=20, course_result=761.',
+      'Final rows: student=20, enrollment=20, course_result=649.',
       'No database statements were executed.',
     ].join('\n') + '\n',
   );
