@@ -48,8 +48,6 @@ export class AuthService {
           first_name: dto.firstName.trim(),
           last_name: dto.lastName.trim(),
         },
-        emailRedirectTo:
-          process.env.EMAIL_CONFIRMATION_REDIRECT_URL || undefined,
       },
     });
 
@@ -94,7 +92,8 @@ export class AuthService {
     }
 
     return {
-      message: 'Registration successful. Please verify your email.',
+      message:
+        'Registration successful. Check your email to confirm your account, then return to the wallet and log in.',
       data: {
         authUserId: data.user.id,
         holderAccountId: holderAccount.holderAccountId,
@@ -196,10 +195,6 @@ export class AuthService {
       .auth.resend({
         type: 'signup',
         email,
-        options: {
-          emailRedirectTo:
-            process.env.EMAIL_CONFIRMATION_REDIRECT_URL || undefined,
-        },
       });
 
     if (error) {

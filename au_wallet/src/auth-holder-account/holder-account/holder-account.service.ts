@@ -161,14 +161,16 @@ export class HolderAccountService {
     holderAccountId: number,
     accountStatus: AccountStatus,
   ): Promise<HolderAccount> {
+    if (accountStatus === AccountStatus.ACTIVE) {
+      throw new ConflictException(
+        'A holder account can only be activated by verified onboarding',
+      );
+    }
+
     const updates: Database['wallet']['Tables']['holder_account']['Update'] = {
       account_status: accountStatus,
       updated_at: new Date().toISOString(),
     };
-
-    if (accountStatus === AccountStatus.ACTIVE) {
-      updates.confirmed_at = new Date().toISOString();
-    }
 
     const { data, error } = await this.supabase
       .schema('wallet')

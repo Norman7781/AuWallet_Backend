@@ -58,6 +58,7 @@ function createService() {
     signUp,
     signInWithPassword,
     refreshSession,
+    resend,
     updateUserById,
     deleteUser,
     signOut,
@@ -103,6 +104,8 @@ describe('AuthService', () => {
         password: 'Password1',
       }),
     ).resolves.toMatchObject({
+      message:
+        'Registration successful. Check your email to confirm your account, then return to the wallet and log in.',
       data: {
         authUserId: 'auth-user-id',
         holderAccountId: 25,
@@ -121,6 +124,32 @@ describe('AuthService', () => {
       'auth-user-id',
       'student@example.com',
     );
+    expect(signUp).toHaveBeenCalledWith({
+      email: 'student@example.com',
+      password: 'Password1',
+      options: {
+        data: {
+          first_name: 'Student',
+          last_name: 'Example',
+        },
+      },
+    });
+  });
+
+  it('resends signup confirmation without supplying a redirect', async () => {
+    const { service, resend } = createService();
+    resend.mockResolvedValue({ data: {}, error: null });
+
+    await expect(
+      service.resendConfirmation('STUDENT@example.test'),
+    ).resolves.toMatchObject({
+      message:
+        'If the account is awaiting confirmation, a new email has been sent.',
+    });
+    expect(resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'student@example.test',
+    });
   });
 
   it('identifies the login role from app metadata and resolves the holder by email', async () => {
