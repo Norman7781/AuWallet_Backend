@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PASSPORT_HMAC_SECRET_DOCUMENTATION_PLACEHOLDER } from '../../config/environment';
 import { PassportHmacService } from './passport-hmac.service';
 
 const SYNTHETIC_TEST_SECRET = 'synthetic-test-secret-not-for-production';
@@ -51,4 +52,18 @@ describe('PassportHmacService', () => {
       );
     },
   );
+
+  it('rejects a backend secret shorter than 32 bytes', () => {
+    expect(() => createService('too-short')).toThrow(
+      'PASSPORT_HMAC_SECRET must be at least 32 bytes',
+    );
+  });
+
+  it('rejects the documentation placeholder', () => {
+    expect(() =>
+      createService(PASSPORT_HMAC_SECRET_DOCUMENTATION_PLACEHOLDER),
+    ).toThrow(
+      'PASSPORT_HMAC_SECRET must not use the documentation placeholder',
+    );
+  });
 });

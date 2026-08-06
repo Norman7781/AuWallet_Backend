@@ -1,19 +1,37 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'node:crypto';
+import {
+  EnvironmentVariables,
+  PASSPORT_HMAC_SECRET_DOCUMENTATION_PLACEHOLDER,
+} from '../../config/environment';
 
 @Injectable()
 export class PassportHmacService {
   private readonly secret: Buffer;
 
-  constructor(configService: ConfigService) {
-    const secret = configService.get<unknown>('PASSPORT_HMAC_SECRET');
+  constructor(configService: ConfigService<EnvironmentVariables, true>) {
+    const secret: unknown = configService.get('PASSPORT_HMAC_SECRET', {
+      infer: true,
+    });
 
     if (typeof secret !== 'string' || secret.trim().length === 0) {
       throw new Error('PASSPORT_HMAC_SECRET is required');
     }
 
-    this.secret = Buffer.from(secret, 'utf8');
+    const normalizedSecret = secret.trim();
+
+    if (normalizedSecret === PASSPORT_HMAC_SECRET_DOCUMENTATION_PLACEHOLDER) {
+      throw new Error(
+        'PASSPORT_HMAC_SECRET must not use the documentation placeholder',
+      );
+    }
+
+    if (Buffer.byteLength(normalizedSecret, 'utf8') < 32) {
+      throw new Error('PASSPORT_HMAC_SECRET must be at least 32 bytes');
+    }
+
+    this.secret = Buffer.from(normalizedSecret, 'utf8');
   }
 
   computePassportHmac(passportIdentifier: string): string {

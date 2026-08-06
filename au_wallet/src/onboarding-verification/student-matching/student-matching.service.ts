@@ -7,6 +7,7 @@ import {
 } from './academic-student-record.interface';
 import { AcademicStudentRepository } from './academic-student.repository';
 import {
+  PreparedStudentMatch,
   StudentMatchInput,
   StudentMatchResult,
 } from './student-match.interface';
@@ -25,6 +26,14 @@ export class StudentMatchingService {
   ) {}
 
   async match(input: StudentMatchInput): Promise<StudentMatchResult> {
+    const prepared = await this.prepareAndMatch(input);
+
+    return prepared.result;
+  }
+
+  async prepareAndMatch(
+    input: StudentMatchInput,
+  ): Promise<PreparedStudentMatch> {
     const admissionNo = input.admissionNo.trim();
     const dateOfBirth = input.dateOfBirth.trim();
 
@@ -43,6 +52,14 @@ export class StudentMatchingService {
       passportNumberHmac,
     });
 
+    const result = this.evaluateLookup(lookup);
+
+    return { passportNumberHmac, result };
+  }
+
+  private evaluateLookup(
+    lookup: Awaited<ReturnType<AcademicStudentRepository['findExactIdentity']>>,
+  ): StudentMatchResult {
     if (lookup.studentMatchCount === 0) {
       return { outcome: 'under_review', reason: 'no_exact_match' };
     }

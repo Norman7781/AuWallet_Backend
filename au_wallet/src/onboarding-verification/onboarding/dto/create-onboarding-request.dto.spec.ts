@@ -44,6 +44,15 @@ describe('CreateOnboardingRequestDto', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a timestamp because academic matching requires a date only', async () => {
+    await expect(
+      createPipe().transform(
+        { ...validPayload, dateOfBirth: '2001-02-03T00:00:00Z' },
+        metadata,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('requires a passport identifier for the HMAC match', async () => {
     const payload = {
       admissionNo: validPayload.admissionNo,
@@ -59,6 +68,7 @@ describe('CreateOnboardingRequestDto', () => {
     { holderAccountId: 25 },
     { matchedEnrollmentId: 50 },
     { academicStatus: 'graduated' },
+    { graduationDate: '2026-05-20' },
     { passportDocument: 'client-controlled-path' },
   ])('rejects client-controlled workflow fields', async (extraField) => {
     await expect(

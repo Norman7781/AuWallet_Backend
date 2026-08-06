@@ -55,6 +55,24 @@ describe('StudentMatchingService', () => {
     },
   );
 
+  it('returns the protected HMAC only to trusted onboarding orchestration', async () => {
+    const { service, findExactIdentity } = createService();
+    findExactIdentity.mockResolvedValue({
+      studentMatchCount: 1,
+      enrollments: [enrollment('studying')],
+    });
+
+    await expect(service.prepareAndMatch(input)).resolves.toEqual({
+      passportNumberHmac: 'a'.repeat(64),
+      result: {
+        outcome: 'matched',
+        studentId: 11,
+        enrollmentId: 22,
+        academicStatus: 'studying',
+      },
+    });
+  });
+
   it.each(['withdrawn', 'suspended'] as const)(
     'classifies one %s enrollment as internally ineligible',
     async (academicStatus) => {

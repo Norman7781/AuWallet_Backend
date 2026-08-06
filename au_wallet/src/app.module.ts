@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AuthHolderAccountModule } from './auth-holder-account/auth-holder-account.module';
 import { validateEnvironment } from './config/environment';
+import { OnboardingVerificationModule } from './onboarding-verification/onboarding-verification.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { validateEnvironment } from './config/environment';
     }),
 
     AuthHolderAccountModule,
+    OnboardingVerificationModule,
   ],
 })
 export class AppModule {}

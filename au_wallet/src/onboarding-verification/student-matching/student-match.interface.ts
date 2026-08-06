@@ -32,3 +32,8 @@ export type StudentMatchResult =
       outcome: 'under_review';
       reason: ManualReviewReason;
     };
+
+export interface PreparedStudentMatch {
+  passportNumberHmac: string;
+  result: StudentMatchResult;
+}

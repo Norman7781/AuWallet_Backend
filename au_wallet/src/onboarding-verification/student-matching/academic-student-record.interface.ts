@@ -27,3 +27,16 @@ export interface AcademicStudentLookupResult {
   studentMatchCount: number;
   enrollments: AcademicEnrollmentRecord[];
 }
+
+export interface AcademicReviewContext {
+  enrollmentId: number;
+  studentName: string;
+  admissionNo: string;
+  dateOfBirth: string;
+  degreeName: string;
+  major: string;
+  majorConcentration: string | null;
+  admissionDate: string;
+  academicStatus: AcademicStatus;
+  officialGraduationDate: string | null;
+}
