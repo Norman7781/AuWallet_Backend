@@ -82,6 +82,52 @@ type LoginHistoryTable = {
   Relationships: [];
 };
 
+export type OnboardingVerificationStatus =
+  'submitted' | 'under_review' | 'matched' | 'rejected';
+
+type WalletOnboardingRequestTable = {
+  Row: {
+    onboarding_request_id: number;
+    holder_account_id: number;
+    admission_no: string;
+    date_of_birth: string;
+    passport_number_hmac: string;
+    verification_status: OnboardingVerificationStatus;
+    matched_enrollment_id: number | null;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    submitted_at: string;
+  };
+  Insert: {
+    onboarding_request_id?: number;
+    holder_account_id: number;
+    admission_no: string;
+    date_of_birth: string;
+    passport_number_hmac: string;
+    verification_status?: OnboardingVerificationStatus;
+    matched_enrollment_id?: number | null;
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
+    rejection_reason?: string | null;
+    submitted_at?: string;
+  };
+  Update: {
+    onboarding_request_id?: number;
+    holder_account_id?: number;
+    admission_no?: string;
+    date_of_birth?: string;
+    passport_number_hmac?: string;
+    verification_status?: OnboardingVerificationStatus;
+    matched_enrollment_id?: number | null;
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
+    rejection_reason?: string | null;
+    submitted_at?: string;
+  };
+  Relationships: [];
+};
+
 type EmptySchema = {
   Tables: {
     [_ in never]: never;
@@ -119,13 +165,27 @@ export type Database = {
       holder_account: HolderAccountTable;
       login_history: LoginHistoryTable;
       uploaded_identity_document: UntypedTable;
-      wallet_onboarding_request: UntypedTable;
+      wallet_onboarding_request: WalletOnboardingRequestTable;
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      approve_onboarding_request: {
+        Args: {
+          p_onboarding_request_id: number;
+          p_reviewed_by: string;
+        };
+        Returns: {
+          onboarding_request_id: number;
+          holder_account_id: number;
+          verification_status: OnboardingVerificationStatus;
+          matched_enrollment_id: number | null;
+          rejection_reason: string | null;
+          reviewed_at: string | null;
+          submitted_at: string;
+        }[];
+      };
     };
   };
 };
