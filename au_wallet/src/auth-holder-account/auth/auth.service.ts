@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -34,7 +35,7 @@ export class AuthService {
       await this.holderAccountService.findByPersonalEmail(email);
 
     if (existingHolder) {
-      throw new ConflictException('An account with this email already exists');
+      throw this.emailAlreadyRegisteredException();
     }
 
     const authClient = this.supabaseService.createAuthClient();
@@ -52,17 +53,28 @@ export class AuthService {
     });
 
     if (error) {
-      throw new BadRequestException(error.message);
+      if (
+        error.code === 'email_exists' ||
+        error.code === 'user_already_exists'
+      ) {
+        throw this.emailAlreadyRegisteredException();
+      }
+
+      throw new BadRequestException({
+        code: 'REGISTRATION_FAILED',
+        message: 'Registration could not be completed.',
+      });
     }
 
     if (!data.user) {
-      throw new BadRequestException(
-        'Supabase authentication user was not created',
-      );
+      throw new BadRequestException({
+        code: 'REGISTRATION_FAILED',
+        message: 'Registration could not be completed.',
+      });
     }
 
     if (data.user.identities?.length === 0) {
-      throw new ConflictException('An account with this email already exists');
+      throw this.emailAlreadyRegisteredException();
     }
 
     let holderAccount: HolderAccount;
@@ -114,14 +126,24 @@ export class AuthService {
     });
 
     if (error || !data.user || !data.session) {
+      const emailNotConfirmed = error?.code === 'email_not_confirmed';
+      const failureCode = emailNotConfirmed
+        ? 'EMAIL_NOT_CONFIRMED'
+        : 'INVALID_CREDENTIALS';
+
       await this.loginHistoryService.recordFailure({
         email,
         ipAddress,
         userAgent,
-        failureReason: 'INVALID_CREDENTIALS',
+        failureReason: failureCode,
       });
 
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException({
+        code: failureCode,
+        message: emailNotConfirmed
+          ? 'Confirm your email before logging in.'
+          : 'Invalid email or password.',
+      });
     }
 
     const role = this.rolesService.identifyRole({
@@ -133,18 +155,7 @@ export class AuthService {
       data.user.id,
     );
 
-    if (role === UserRole.STUDENT && !holder) {
-      throw new UnauthorizedException('Holder account was not found');
-    }
-
-    if (
-      holder?.accountStatus === AccountStatus.REJECTED ||
-      holder?.accountStatus === AccountStatus.SUSPENDED
-    ) {
-      throw new UnauthorizedException(
-        `This account is ${holder.accountStatus}`,
-      );
-    }
+    this.assertAccountEnabled(role, holder);
 
     await this.loginHistoryService.recordSuccess({
       authUserId: data.user.id,
@@ -215,7 +226,10 @@ export class AuthService {
       });
 
     if (error || !data.session || !data.user) {
-      throw new UnauthorizedException('The refresh token is invalid');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The refresh token is invalid or expired.',
+      });
     }
 
     const role = this.rolesService.identifyRole({
@@ -227,18 +241,7 @@ export class AuthService {
       data.user.id,
     );
 
-    if (role === UserRole.STUDENT && !holder) {
-      throw new UnauthorizedException('Holder account was not found');
-    }
-
-    if (
-      holder?.accountStatus === AccountStatus.REJECTED ||
-      holder?.accountStatus === AccountStatus.SUSPENDED
-    ) {
-      throw new UnauthorizedException(
-        `This account is ${holder.accountStatus}`,
-      );
-    }
+    this.assertAccountEnabled(role, holder);
 
     return {
       message: 'Session refreshed',
@@ -292,5 +295,29 @@ export class AuthService {
     }
 
     return { message: 'Password updated successfully' };
+  }
+
+  private emailAlreadyRegisteredException(): ConflictException {
+    return new ConflictException({
+      code: 'EMAIL_ALREADY_REGISTERED',
+      message: 'An account with this email already exists.',
+    });
+  }
+
+  private assertAccountEnabled(
+    role: UserRole,
+    holder: HolderAccount | null,
+  ): void {
+    const studentHolderMissing = role === UserRole.STUDENT && !holder;
+    const holderDisabled =
+      holder?.accountStatus === AccountStatus.REJECTED ||
+      holder?.accountStatus === AccountStatus.SUSPENDED;
+
+    if (studentHolderMissing || holderDisabled) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      });
+    }
   }
 }

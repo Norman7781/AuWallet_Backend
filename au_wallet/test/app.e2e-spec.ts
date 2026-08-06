@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
+  ForbiddenException,
   INestApplication,
   NotFoundException,
   UnauthorizedException,
@@ -9,6 +10,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AccountStatus } from './../src/auth-holder-account/common/enums/account-status.enum';
 import { UserRole } from './../src/auth-holder-account/common/enums/role.enum';
+import { AuthService } from './../src/auth-holder-account/auth/auth.service';
 import { AuthenticatedUserService } from './../src/auth-holder-account/users/authenticated-user.service';
 import { AppModule } from './../src/app.module';
 import { configureHttpApplication } from './../src/common/http/configure-http-application';
@@ -30,6 +32,47 @@ interface ControlledRequest {
   reviewedAt: string | null;
   rejectionReason: string | null;
   submittedAt: string;
+}
+
+class ControlledAuthService {
+  register(dto: { personalEmail: string }) {
+    if (dto.personalEmail === 'existing@example.test') {
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+      });
+    }
+
+    throw new Error('Unexpected controlled registration input');
+  }
+
+  login(dto: { email: string }) {
+    if (dto.email === 'unconfirmed@example.test') {
+      throw new UnauthorizedException({
+        code: 'EMAIL_NOT_CONFIRMED',
+        message: 'Confirm your email before logging in.',
+      });
+    }
+
+    if (dto.email === 'disabled@example.test') {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      });
+    }
+
+    throw new UnauthorizedException({
+      code: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password.',
+    });
+  }
+
+  refresh() {
+    throw new UnauthorizedException({
+      code: 'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+      message: 'The refresh token is invalid or expired.',
+    });
+  }
 }
 
 class ControlledOnboardingWorkflow {
@@ -232,6 +275,8 @@ describe('AU Wallet backend API (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(AuthService)
+      .useValue(new ControlledAuthService())
       .overrideProvider(AuthenticatedUserService)
       .useValue({
         identify: jest.fn((accessToken: string) => {
@@ -252,7 +297,10 @@ describe('AU Wallet backend API (e2e)', () => {
                   : null;
 
           if (!role) {
-            throw new UnauthorizedException('The access token is invalid');
+            throw new UnauthorizedException({
+              code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+              message: 'The access token is missing, invalid, or expired.',
+            });
           }
 
           return {
@@ -315,6 +363,86 @@ describe('AU Wallet backend API (e2e)', () => {
     expect(Array.isArray(validationBody.error.details)).toBe(true);
   });
 
+  it('returns EMAIL_ALREADY_REGISTERED for an existing registration email', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        firstName: 'Synthetic',
+        lastName: 'Student',
+        personalEmail: 'existing@example.test',
+        password: 'Password1',
+      })
+      .expect(409);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+        details: [],
+      },
+    });
+  });
+
+  it('returns EMAIL_NOT_CONFIRMED for login before confirmation', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'unconfirmed@example.test', password: 'Password1' })
+      .expect(401);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'EMAIL_NOT_CONFIRMED',
+        message: 'Confirm your email before logging in.',
+        details: [],
+      },
+    });
+  });
+
+  it('returns INVALID_CREDENTIALS without revealing whether an email exists', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'unknown@example.test', password: 'Password1' })
+      .expect(401);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+        details: [],
+      },
+    });
+  });
+
+  it('returns REFRESH_TOKEN_INVALID_OR_EXPIRED for an unusable refresh token', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: 'unusable-refresh-token' })
+      .expect(401);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The refresh token is invalid or expired.',
+        details: [],
+      },
+    });
+  });
+
+  it('returns ACCOUNT_DISABLED for a disabled holder login', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'disabled@example.test', password: 'Password1' })
+      .expect(403);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+        details: [],
+      },
+    });
+  });
+
   it('protects the current-user endpoint', async () => {
     const response = await request(app.getHttpServer())
       .get('/auth/me')
@@ -322,8 +450,23 @@ describe('AU Wallet backend API (e2e)', () => {
 
     expect(response.body).toEqual({
       error: {
-        code: 'AUTHENTICATION_REQUIRED',
-        message: 'Authentication is required.',
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
+        details: [],
+      },
+    });
+  });
+
+  it('returns ACCESS_TOKEN_INVALID_OR_EXPIRED for an invalid Bearer token', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Authorization', 'Bearer invalid-token')
+      .expect(401);
+
+    expect(response.body).toEqual({
+      error: {
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
         details: [],
       },
     });

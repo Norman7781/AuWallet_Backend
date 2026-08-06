@@ -52,12 +52,27 @@ Common status codes:
 | HTTP | Default code                        | Meaning                                                              |
 | ---- | ----------------------------------- | -------------------------------------------------------------------- |
 | 400  | `VALIDATION_ERROR`                  | The body, path parameter, or query parameter is invalid.             |
-| 401  | `AUTHENTICATION_REQUIRED`           | The access token is absent or invalid.                               |
+| 401  | `AUTHENTICATION_REQUIRED`           | Authentication is required for a non-token-specific failure.         |
 | 403  | `FORBIDDEN`                         | The authenticated role cannot perform the action.                    |
 | 404  | `NOT_FOUND`                         | The requested record does not exist or is not available.             |
 | 409  | `CONFLICT` or a specific code below | Current workflow state prevents the action.                          |
 | 500  | `INTERNAL_ERROR`                    | A safe unexpected-error response; internal details are not returned. |
 | 503  | `SERVICE_UNAVAILABLE`               | A required backend dependency is temporarily unavailable.            |
+
+Authentication-specific errors:
+
+| HTTP | Code                               | Meaning                                                                               | Frontend behavior                                                           |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 400  | `REGISTRATION_FAILED`              | Registration could not be completed for a safe, non-duplicate authentication failure. | Show a generic failure and allow retry; never display raw Supabase details. |
+| 401  | `EMAIL_NOT_CONFIRMED`              | Login requires email confirmation.                                                    | Ask the user to confirm the email before logging in.                        |
+| 401  | `INVALID_CREDENTIALS`              | The supplied login credentials are invalid.                                           | Show one generic invalid email/password message.                            |
+| 409  | `EMAIL_ALREADY_REGISTERED`         | Registration found an existing account for the email.                                 | Offer login or confirmation resend instead of registration.                 |
+| 401  | `ACCESS_TOKEN_INVALID_OR_EXPIRED`  | The access token is missing, invalid, or expired.                                     | Refresh if possible; otherwise return to login.                             |
+| 401  | `REFRESH_TOKEN_INVALID_OR_EXPIRED` | The refresh token is invalid, expired, or unusable.                                   | Clear the local session and return to login.                                |
+| 403  | `ACCOUNT_DISABLED`                 | The holder account cannot currently be used.                                          | Block use and show a controlled account-disabled message.                   |
+
+Raw Supabase Auth messages are never part of the API contract. Login failures
+do not reveal whether an unknown email is registered.
 
 ## Roles
 
@@ -166,6 +181,7 @@ Role: public. Used by students, issuer staff, and admins.
 ```
 
 For issuer staff and admins, `holderAccountId` and `accountStatus` are `null`.
+`expiresAt` is Unix time in seconds.
 
 ### `POST /auth/refresh`
 
@@ -177,7 +193,11 @@ Role: public with a valid refresh token.
 }
 ```
 
-The response has the same `data` shape as login and returns a refreshed token pair.
+The response has the same `data` shape as login and returns a refreshed token
+pair. After every successful refresh, the frontend must replace both its access
+token and refresh token. When a protected request fails with
+`ACCESS_TOKEN_INVALID_OR_EXPIRED`, the frontend may refresh and retry that
+protected request once. It must not enter an unlimited refresh/retry loop.
 
 ### `POST /auth/logout`
 
@@ -292,6 +312,8 @@ A rejected request does not prevent the holder from correcting the supplied valu
 Role: `student` with a holder account.
 
 Returns the same safe onboarding-request shape as submission. It never returns the submitted passport, passport HMAC, candidate enrollment ID, or matching diagnostics.
+When the holder has no onboarding request, it returns HTTP 404 with code
+`NOT_FOUND`.
 
 ## Issuer routes
 
@@ -364,6 +386,12 @@ Approve:
 
 `canApprove: true` means the request currently has a submission-time exact eligible candidate available for issuer review. It is not the final identity-verification result. When Approve is executed, the backend RPC definitively revalidates the stored admission number, date of birth, passport HMAC, and sole eligible enrollment inside the same transaction that completes the review and activates the holder.
 
+A successful approval atomically changes the onboarding request to `matched`,
+changes the holder account to `active`, and sets the holder's `confirmedAt`.
+The issuer approval response reports the onboarding review result and does not
+include holder-account status. The wallet obtains the resulting holder state
+through `GET /holder-accounts/me`.
+
 Reject:
 
 ```json
@@ -398,6 +426,5 @@ Eligible academic statuses are `studying`, `graduated`, and `alumni`. `withdrawn
 - Store browser access tokens in memory for this development integration; do not place them in examples or source control.
 - Never log passwords, tokens, passport inputs, normalized passport values, passport HMACs, HMAC secrets, or Supabase secret keys.
 - Do not infer a failed matching factor from a generic review result.
-- The approval RPC and its database permissions remain unavailable until the reviewed migrations are separately approved and applied.
 - Password recovery is postponed and is not part of this frontend integration
   subset. No React Native password-recovery callback has been approved.

@@ -1,7 +1,6 @@
 import {
   ForbiddenException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AccountStatus } from '../common/enums/account-status.enum';
@@ -24,13 +23,13 @@ export class AuthenticatedUserService {
     const token = accessToken.trim();
 
     if (!token) {
-      throw new UnauthorizedException('An access token is required');
+      throw this.accessTokenException();
     }
 
     const { data, error } = await this.supabase.client.auth.getClaims(token);
 
     if (error || !data) {
-      throw new UnauthorizedException('The access token is invalid');
+      throw this.accessTokenException();
     }
 
     const claims = data.claims as AuthUserClaims;
@@ -40,9 +39,7 @@ export class AuthenticatedUserService {
       typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : '';
 
     if (!supabaseAuthId || !email) {
-      throw new UnauthorizedException(
-        'The access token is missing required identity claims',
-      );
+      throw this.accessTokenException();
     }
 
     const role = this.roleService.identifyRole(claims).value;
@@ -50,18 +47,14 @@ export class AuthenticatedUserService {
       await this.holderAccountService.findByAuthUserId(supabaseAuthId);
 
     if (role === UserRole.STUDENT && !holderAccount) {
-      throw new NotFoundException(
-        'No holder account exists for the authenticated student',
-      );
+      throw this.accountDisabledException();
     }
 
     if (
       holderAccount?.accountStatus === AccountStatus.REJECTED ||
       holderAccount?.accountStatus === AccountStatus.SUSPENDED
     ) {
-      throw new ForbiddenException(
-        `This holder account is ${holderAccount.accountStatus}`,
-      );
+      throw this.accountDisabledException();
     }
 
     return {
@@ -71,5 +64,19 @@ export class AuthenticatedUserService {
       role,
       accountStatus: holderAccount?.accountStatus ?? null,
     };
+  }
+
+  private accessTokenException(): UnauthorizedException {
+    return new UnauthorizedException({
+      code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+      message: 'The access token is missing, invalid, or expired.',
+    });
+  }
+
+  private accountDisabledException(): ForbiddenException {
+    return new ForbiddenException({
+      code: 'ACCOUNT_DISABLED',
+      message: 'This account is disabled.',
+    });
   }
 }

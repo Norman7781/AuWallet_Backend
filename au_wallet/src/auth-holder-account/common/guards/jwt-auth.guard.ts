@@ -19,7 +19,10 @@ export class JwtAuthGuard implements CanActivate {
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
 
     if (!match?.[1]) {
-      throw new UnauthorizedException('A Bearer access token is required');
+      throw new UnauthorizedException({
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
+      });
     }
 
     const accessToken = match[1].trim();

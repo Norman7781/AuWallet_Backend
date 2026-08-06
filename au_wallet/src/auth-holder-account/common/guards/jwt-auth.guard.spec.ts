@@ -1,4 +1,4 @@
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext } from '@nestjs/common';
 import { AuthenticatedUserService } from '../../users/authenticated-user.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
@@ -45,8 +45,12 @@ describe('JwtAuthGuard', () => {
       }),
     } as unknown as ExecutionContext;
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      status: 401,
+      response: {
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
+      },
+    });
   });
 });

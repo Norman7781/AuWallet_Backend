@@ -1,4 +1,3 @@
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AccountStatus } from '../common/enums/account-status.enum';
 import { UserRole } from '../common/enums/role.enum';
@@ -66,12 +65,16 @@ describe('AuthenticatedUserService', () => {
       error: { message: 'invalid token' },
     });
 
-    await expect(service.identify('invalid-token')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.identify('invalid-token')).rejects.toMatchObject({
+      status: 401,
+      response: {
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
+      },
+    });
   });
 
-  it('requires students to have a holder account', async () => {
+  it('returns ACCOUNT_DISABLED when a student has no holder account', async () => {
     const { service, getClaims, identifyRole, findByAuthUserId } =
       createService();
     getClaims.mockResolvedValue({
@@ -89,8 +92,40 @@ describe('AuthenticatedUserService', () => {
     });
     findByAuthUserId.mockResolvedValue(null);
 
-    await expect(service.identify('valid-token')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.identify('valid-token')).rejects.toMatchObject({
+      status: 403,
+      response: {
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      },
+    });
+  });
+
+  it('returns ACCOUNT_DISABLED for a suspended holder', async () => {
+    const { service, getClaims, identifyRole, findByAuthUserId } =
+      createService();
+    getClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: 'f8daf518-43f1-438f-aa51-8c33480c1024',
+          email: 'student@example.test',
+          app_metadata: { role: 'student' },
+        },
+      },
+      error: null,
+    });
+    identifyRole.mockReturnValue({ value: UserRole.STUDENT });
+    findByAuthUserId.mockResolvedValue({
+      holderAccountId: 10,
+      accountStatus: AccountStatus.SUSPENDED,
+    });
+
+    await expect(service.identify('valid-token')).rejects.toMatchObject({
+      status: 403,
+      response: {
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      },
+    });
   });
 });

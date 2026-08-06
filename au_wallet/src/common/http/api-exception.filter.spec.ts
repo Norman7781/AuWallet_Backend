@@ -111,4 +111,73 @@ describe('ApiExceptionFilter', () => {
       },
     });
   });
+
+  it.each([
+    [
+      'EMAIL_NOT_CONFIRMED',
+      new UnauthorizedException({
+        code: 'EMAIL_NOT_CONFIRMED',
+        message: 'Confirm your email before logging in.',
+      }),
+      401,
+      'Confirm your email before logging in.',
+    ],
+    [
+      'INVALID_CREDENTIALS',
+      new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      }),
+      401,
+      'Invalid email or password.',
+    ],
+    [
+      'EMAIL_ALREADY_REGISTERED',
+      new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+      }),
+      409,
+      'An account with this email already exists.',
+    ],
+    [
+      'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+      new UnauthorizedException({
+        code: 'ACCESS_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The access token is missing, invalid, or expired.',
+      }),
+      401,
+      'The access token is missing, invalid, or expired.',
+    ],
+    [
+      'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+      new UnauthorizedException({
+        code: 'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The refresh token is invalid or expired.',
+      }),
+      401,
+      'The refresh token is invalid or expired.',
+    ],
+    [
+      'ACCOUNT_DISABLED',
+      new ForbiddenException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      }),
+      403,
+      'This account is disabled.',
+    ],
+  ])(
+    'preserves explicit authentication code %s',
+    (code, exception, expectedStatus, message) => {
+      const { host, status, json } = createHost();
+
+      new ApiExceptionFilter().catch(exception, host);
+
+      expect(status).toHaveBeenCalledWith(expectedStatus);
+      expect(json).toHaveBeenCalledWith({
+        error: { code, message, details: [] },
+      });
+    },
+  );
 });

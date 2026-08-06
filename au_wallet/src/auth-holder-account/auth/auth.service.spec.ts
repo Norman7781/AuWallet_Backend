@@ -68,6 +68,7 @@ function createService() {
     identifyRole,
     recordSuccess,
     recordLogout,
+    recordFailure,
   };
 }
 
@@ -152,6 +153,81 @@ describe('AuthService', () => {
     });
   });
 
+  it('returns EMAIL_ALREADY_REGISTERED when a holder already uses the email', async () => {
+    const { service, findByPersonalEmail, signUp } = createService();
+    findByPersonalEmail.mockResolvedValue({ holderAccountId: 25 });
+
+    await expect(
+      service.register({
+        firstName: 'Student',
+        lastName: 'Example',
+        personalEmail: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: {
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+      },
+    });
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it('maps Supabase duplicate-email codes without exposing its raw message', async () => {
+    const { service, findByPersonalEmail, signUp } = createService();
+    findByPersonalEmail.mockResolvedValue(null);
+    signUp.mockResolvedValue({
+      data: { user: null },
+      error: {
+        code: 'email_exists',
+        message: 'raw Supabase duplicate detail',
+      },
+    });
+
+    await expect(
+      service.register({
+        firstName: 'Student',
+        lastName: 'Example',
+        personalEmail: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: {
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+      },
+    });
+  });
+
+  it('returns a safe registration failure for other Supabase errors', async () => {
+    const { service, findByPersonalEmail, signUp } = createService();
+    findByPersonalEmail.mockResolvedValue(null);
+    signUp.mockResolvedValue({
+      data: { user: null },
+      error: {
+        code: 'unexpected_failure',
+        message: 'raw Supabase internal detail',
+      },
+    });
+
+    await expect(
+      service.register({
+        firstName: 'Student',
+        lastName: 'Example',
+        personalEmail: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: {
+        code: 'REGISTRATION_FAILED',
+        message: 'Registration could not be completed.',
+      },
+    });
+  });
+
   it('identifies the login role from app metadata and resolves the holder by email', async () => {
     const {
       service,
@@ -203,6 +279,98 @@ describe('AuthService', () => {
       },
     });
     expect(findByAuthUserId).toHaveBeenCalledWith('auth-user-id');
+  });
+
+  it('maps Supabase email_not_confirmed to EMAIL_NOT_CONFIRMED', async () => {
+    const { service, signInWithPassword, recordFailure } = createService();
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'email_not_confirmed',
+        message: 'raw Supabase confirmation detail',
+      },
+    });
+
+    await expect(
+      service.login({
+        email: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 401,
+      response: {
+        code: 'EMAIL_NOT_CONFIRMED',
+        message: 'Confirm your email before logging in.',
+      },
+    });
+    expect(recordFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ failureReason: 'EMAIL_NOT_CONFIRMED' }),
+    );
+  });
+
+  it('maps invalid login attempts to INVALID_CREDENTIALS without email enumeration', async () => {
+    const { service, signInWithPassword, recordFailure } = createService();
+    signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'invalid_credentials',
+        message: 'raw Supabase credential detail',
+      },
+    });
+
+    await expect(
+      service.login({
+        email: 'unknown@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 401,
+      response: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      },
+    });
+    expect(recordFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ failureReason: 'INVALID_CREDENTIALS' }),
+    );
+  });
+
+  it('returns ACCOUNT_DISABLED for a rejected holder after valid credentials', async () => {
+    const { service, signInWithPassword, findByAuthUserId, identifyRole } =
+      createService();
+    signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          id: 'auth-user-id',
+          email: 'student@example.test',
+          app_metadata: { role: 'student' },
+        },
+        session: {
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          expires_at: 123456,
+        },
+      },
+      error: null,
+    });
+    identifyRole.mockReturnValue({ value: UserRole.STUDENT });
+    findByAuthUserId.mockResolvedValue({
+      holderAccountId: 25,
+      accountStatus: AccountStatus.REJECTED,
+    });
+
+    await expect(
+      service.login({
+        email: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: {
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account is disabled.',
+      },
+    });
   });
 
   it('removes an Auth user when holder-account creation fails', async () => {
@@ -277,6 +445,27 @@ describe('AuthService', () => {
           authUserId: 'auth-user-id',
           role: UserRole.STUDENT,
         },
+      },
+    });
+  });
+
+  it('maps an unusable refresh token to REFRESH_TOKEN_INVALID_OR_EXPIRED', async () => {
+    const { service, refreshSession } = createService();
+    refreshSession.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'refresh_token_already_used',
+        message: 'raw Supabase refresh-token detail',
+      },
+    });
+
+    await expect(
+      service.refresh('unusable-refresh-token'),
+    ).rejects.toMatchObject({
+      status: 401,
+      response: {
+        code: 'REFRESH_TOKEN_INVALID_OR_EXPIRED',
+        message: 'The refresh token is invalid or expired.',
       },
     });
   });
