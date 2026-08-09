@@ -1,5 +1,5 @@
 export const SUPABASE_PROJECT_REF = 'ezsylcmnqbcwvkoqybkd';
-export const DEFAULT_ISSUER_UI_ORIGIN = 'http://localhost:3001';
+export const DEFAULT_ISSUER_UI_ORIGIN = 'http://localhost:5173';
 export const DEFAULT_WALLET_UI_ORIGIN = 'http://localhost:3002';
 export const PASSPORT_HMAC_SECRET_DOCUMENTATION_PLACEHOLDER =
   'replace_with_at_least_32_random_characters';

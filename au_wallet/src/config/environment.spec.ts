@@ -24,6 +24,10 @@ describe('validateEnvironment', () => {
     expect(result.WALLET_UI_ORIGIN).toBe(DEFAULT_WALLET_UI_ORIGIN);
   });
 
+  it('uses the issuer Vite port as the exact development origin', () => {
+    expect(DEFAULT_ISSUER_UI_ORIGIN).toBe('http://localhost:5173');
+  });
+
   it('normalizes explicitly configured origins', () => {
     const result = validateEnvironment({
       ...baseConfig,
