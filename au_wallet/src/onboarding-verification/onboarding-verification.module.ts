@@ -26,6 +26,9 @@ import { IssuerDashboardController } from './issuer-dashboard/issuer-dashboard.c
 import { IssuerDashboardRepository } from './issuer-dashboard/issuer-dashboard.repository';
 import { IssuerDashboardService } from './issuer-dashboard/issuer-dashboard.service';
 import { NonProductionDashboardGuard } from './issuer-dashboard/non-production-dashboard.guard';
+import { IssuerAcademicController } from './issuer-academic/issuer-academic.controller';
+import { IssuerAcademicRepository } from './issuer-academic/issuer-academic.repository';
+import { IssuerAcademicService } from './issuer-academic/issuer-academic.service';
 
 @Module({
   imports: [AuthHolderAccountModule, UsersModule, ConfigModule, SupabaseModule],
@@ -34,6 +37,7 @@ import { NonProductionDashboardGuard } from './issuer-dashboard/non-production-d
     IssuerProviderController,
     IssuerConnectionController,
     IssuerDashboardController,
+    IssuerAcademicController,
   ],
   providers: [
     PassportHmacService,
@@ -48,6 +52,8 @@ import { NonProductionDashboardGuard } from './issuer-dashboard/non-production-d
     IssuerConnectionService,
     IssuerDashboardRepository,
     IssuerDashboardService,
+    IssuerAcademicRepository,
+    IssuerAcademicService,
     NonProductionDashboardGuard,
     {
       provide: OnboardingApprovalFinalizer,

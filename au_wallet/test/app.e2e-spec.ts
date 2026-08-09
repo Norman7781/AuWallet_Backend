@@ -19,6 +19,7 @@ import { OnboardingService } from './../src/onboarding-verification/onboarding/o
 import { IssuerReviewService } from './../src/onboarding-verification/issuer-review/issuer-review.service';
 import { IssuerConnectionService } from './../src/onboarding-verification/issuer-connections/issuer-connection.service';
 import { IssuerDashboardService } from './../src/onboarding-verification/issuer-dashboard/issuer-dashboard.service';
+import { IssuerAcademicService } from './../src/onboarding-verification/issuer-academic/issuer-academic.service';
 import { SupabaseService } from './../src/supabase/supabase.service';
 
 type ControlledVerificationStatus = 'matched' | 'rejected';
@@ -426,6 +427,90 @@ describe('AU Wallet backend API (e2e)', () => {
           meta: {},
         }),
       })
+      .overrideProvider(IssuerAcademicService)
+      .useValue({
+        listPrograms: jest.fn().mockResolvedValue({
+          data: {
+            programs: [
+              {
+                facultyCode: 'VMES',
+                facultyName:
+                  'Vincent Mary School of Engineering, Science and Technology',
+                programCode: 'SYN-VMES-CS',
+                degreeName: 'Bachelor of Science',
+                major: 'Computer Science',
+                majorConcentration: null,
+              },
+            ],
+          },
+          message: 'Issuer program options loaded.',
+          meta: {},
+        }),
+        listStudents: jest.fn().mockResolvedValue({
+          data: {
+            students: [
+              {
+                studentNumber: '6499002',
+                fullName: 'Mr Kawin Rattanakul',
+                facultyCode: 'VMES',
+                facultyName:
+                  'Vincent Mary School of Engineering, Science and Technology',
+                programCode: 'SYN-VMES-CS',
+                degreeName: 'Bachelor of Science',
+                major: 'Computer Science',
+                majorConcentration: null,
+                academicStatus: 'graduated',
+                graduationDate: '2025-05-24',
+                walletEligibility: 'verified',
+              },
+            ],
+          },
+          message: 'Issuer students loaded.',
+          meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 },
+        }),
+        getAcademicReview: jest.fn().mockResolvedValue({
+          data: {
+            studentNumber: '6499002',
+            fullName: 'Mr Kawin Rattanakul',
+            facultyCode: 'VMES',
+            programCode: 'SYN-VMES-CS',
+            major: 'Computer Science',
+            academicStatus: 'graduated',
+            graduationDate: '2025-05-24',
+            cumulativeGpa: 3.59,
+            walletEligibility: 'verified',
+          },
+          message: 'Student academic review loaded.',
+          meta: {},
+        }),
+        getAcademicPreview: jest.fn().mockResolvedValue({
+          data: {
+            studentNumber: '6499002',
+            cumulativeGpa: 3.59,
+            totalEarnedCredits: 132,
+            transferCredits: 0,
+            terms: [],
+            unassignedResults: [],
+          },
+          message: 'Student academic preview loaded.',
+          meta: {},
+        }),
+        listGraduatingStudents: jest.fn().mockResolvedValue({
+          data: { students: [] },
+          message: 'Graduating students loaded.',
+          meta: { total: 0 },
+        }),
+        resolveWalletEligibility: jest.fn().mockResolvedValue({
+          data: {
+            results: [
+              { studentNumber: '6499002', status: 'verified' },
+              { studentNumber: '0000000', status: 'not_verified' },
+            ],
+          },
+          message: 'Wallet eligibility resolved.',
+          meta: {},
+        }),
+      })
       .overrideProvider(SupabaseService)
       .useValue({
         schema: jest.fn(() => {
@@ -483,6 +568,99 @@ describe('AU Wallet backend API (e2e)', () => {
     await request(app.getHttpServer())
       .get('/issuer-connections/me')
       .expect(401);
+  });
+
+  it('loads pre-issuance issuer student reads without login in test', async () => {
+    const programs = await request(app.getHttpServer())
+      .get('/issuer/programs?facultyCode=VMES')
+      .expect(200);
+    const list = await request(app.getHttpServer())
+      .get('/issuer/students?q=Kawin&page=1&pageSize=25')
+      .expect(200);
+    const review = await request(app.getHttpServer())
+      .get('/issuer/students/6499002/academic-review')
+      .expect(200);
+    const preview = await request(app.getHttpServer())
+      .get('/issuer/students/6499002/academic-preview')
+      .expect(200);
+    const graduating = await request(app.getHttpServer())
+      .get(
+        '/issuer/graduating-students?graduationDate=2025-05-24&facultyCode=VMES&programCode=SYN-VMES-CS',
+      )
+      .expect(200);
+    const eligibility = await request(app.getHttpServer())
+      .post('/issuer/students/wallet-eligibility:resolve')
+      .send({ studentNumbers: ['6499002', '0000000'] })
+      .expect(200);
+
+    expect(programs.body).toEqual({
+      data: {
+        programs: [
+          {
+            facultyCode: 'VMES',
+            facultyName:
+              'Vincent Mary School of Engineering, Science and Technology',
+            programCode: 'SYN-VMES-CS',
+            degreeName: 'Bachelor of Science',
+            major: 'Computer Science',
+            majorConcentration: null,
+          },
+        ],
+      },
+      message: 'Issuer program options loaded.',
+      meta: {},
+    });
+    expect(list.body).toMatchObject({
+      data: { students: [{ studentNumber: '6499002' }] },
+      message: 'Issuer students loaded.',
+    });
+    expect(review.body).toMatchObject({
+      data: { studentNumber: '6499002', cumulativeGpa: 3.59 },
+      message: 'Student academic review loaded.',
+    });
+    expect(preview.body).toMatchObject({
+      data: { studentNumber: '6499002', totalEarnedCredits: 132 },
+      message: 'Student academic preview loaded.',
+    });
+    expect(graduating.body).toEqual({
+      data: { students: [] },
+      message: 'Graduating students loaded.',
+      meta: { total: 0 },
+    });
+    expect(eligibility.body).toMatchObject({
+      data: {
+        results: [
+          { studentNumber: '6499002', status: 'verified' },
+          { studentNumber: '0000000', status: 'not_verified' },
+        ],
+      },
+    });
+
+    const safeIssuerBodies: unknown[] = [
+      list.body as unknown,
+      review.body as unknown,
+    ];
+    expect(JSON.stringify(safeIssuerBodies)).not.toMatch(
+      /dateOfBirth|email|passport|hmac|holder(Account)?Id|auth(User)?Id|providerId|connectionId|enrollmentId|did|credential/i,
+    );
+  });
+
+  it('validates issuer academic search inputs before the service', async () => {
+    await request(app.getHttpServer())
+      .get('/issuer/programs?facultyCode=*')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/issuer/students?pageSize=101')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(
+        '/issuer/graduating-students?graduationDate=invalid&facultyCode=*&programCode=Computer%20Science',
+      )
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/issuer/students/wallet-eligibility:resolve')
+      .send({ studentNumbers: [] })
+      .expect(400);
   });
 
   it('does not introduce Member 3 transcript functionality', async () => {

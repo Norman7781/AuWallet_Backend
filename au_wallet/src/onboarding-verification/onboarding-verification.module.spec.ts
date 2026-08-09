@@ -21,6 +21,9 @@ import { IssuerProviderController } from './issuer-connections/issuer-provider.c
 import { IssuerDashboardController } from './issuer-dashboard/issuer-dashboard.controller';
 import { IssuerDashboardRepository } from './issuer-dashboard/issuer-dashboard.repository';
 import { IssuerDashboardService } from './issuer-dashboard/issuer-dashboard.service';
+import { IssuerAcademicController } from './issuer-academic/issuer-academic.controller';
+import { IssuerAcademicRepository } from './issuer-academic/issuer-academic.repository';
+import { IssuerAcademicService } from './issuer-academic/issuer-academic.service';
 
 describe('OnboardingVerificationModule', () => {
   it('compiles with Member 2 providers and no database calls', async () => {
@@ -53,6 +56,9 @@ describe('OnboardingVerificationModule', () => {
     expect(moduleRef.get(IssuerDashboardRepository)).toBeDefined();
     expect(moduleRef.get(IssuerDashboardService)).toBeDefined();
     expect(moduleRef.get(IssuerDashboardController)).toBeDefined();
+    expect(moduleRef.get(IssuerAcademicRepository)).toBeDefined();
+    expect(moduleRef.get(IssuerAcademicService)).toBeDefined();
+    expect(moduleRef.get(IssuerAcademicController)).toBeDefined();
     expect(moduleRef.get(IssuerOnboardingRequestRepository)).toBeDefined();
     expect(moduleRef.get(IssuerReviewService)).toBeDefined();
     expect(moduleRef.get(IssuerReviewController)).toBeDefined();

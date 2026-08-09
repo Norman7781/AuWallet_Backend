@@ -69,7 +69,215 @@ Transcript counts, transcript retrieval/issuance/analytics, batch issuance,
 credential generation, signing, DID operations, and wallet delivery are outside
 this Member 1/Member 2 endpoint.
 
-## Development CORS and same-Wi-Fi testing
+## Temporary issuer pre-issuance academic reads
+
+The following read-only endpoints support student lookup, academic review, and
+selection before Member 3 credential work begins. Like the temporary dashboard
+summary, they are available without issuer login only when `NODE_ENV` is
+`development` or `test`; production hides them with HTTP 404. They must never
+be made public in production, and CORS is not an authentication boundary.
+
+All queries are executed by NestJS with the server-side Supabase service. The
+browser receives no database key and has no direct table grant. Responses omit
+date of birth, email, passport/HMAC values, internal database/Auth/holder/
+provider/connection/enrollment IDs, DIDs, document verification values, and
+credential material.
+
+### `GET /issuer/programs?facultyCode=VMES`
+
+Returns active program options for the exact requested faculty, ordered by
+major. The frontend keeps `programCode` as the dropdown value and displays
+`degreeName — major`, followed by the concentration when it is non-null.
+
+```json
+{
+  "data": {
+    "programs": [
+      {
+        "facultyCode": "VMES",
+        "facultyName": "Vincent Mary School of Engineering, Science and Technology",
+        "programCode": "SYN-VMES-CS",
+        "degreeName": "Bachelor of Science",
+        "major": "Computer Science",
+        "majorConcentration": null
+      }
+    ]
+  },
+  "message": "Issuer program options loaded.",
+  "meta": {}
+}
+```
+
+### `GET /issuer/students?q=&page=1&pageSize=25`
+
+`q` searches the student number, first name, or last name. `pageSize` is 1–100.
+
+```json
+{
+  "data": {
+    "students": [
+      {
+        "studentNumber": "<student-number>",
+        "fullName": "Synthetic Student",
+        "facultyCode": "VMES",
+        "facultyName": "Vincent Mary School of Engineering, Science and Technology",
+        "programCode": "SYN-VMES-CS",
+        "degreeName": "Bachelor of Science",
+        "major": "Computer Science",
+        "majorConcentration": null,
+        "academicStatus": "graduated",
+        "graduationDate": "2025-05-24",
+        "walletEligibility": "not_verified"
+      }
+    ]
+  },
+  "message": "Issuer students loaded.",
+  "meta": {
+    "page": 1,
+    "pageSize": 25,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### `GET /issuer/students/:studentNumber/academic-review`
+
+Returns the selected student's safe identity label, latest enrollment/program,
+graduation summary when present, and verified-AU wallet eligibility. Active
+students without a graduation record have null graduation/GPA summary fields.
+
+```json
+{
+  "data": {
+    "studentNumber": "<student-number>",
+    "fullName": "Synthetic Student",
+    "facultyCode": "VMES",
+    "facultyName": "Vincent Mary School of Engineering, Science and Technology",
+    "programCode": "SYN-VMES-CS",
+    "degreeName": "Bachelor of Science",
+    "major": "Computer Science",
+    "majorConcentration": null,
+    "academicStatus": "graduated",
+    "graduationDate": "2025-05-24",
+    "walletEligibility": "not_verified",
+    "admissionDate": "2021-06-07",
+    "requiredCredits": 132,
+    "creditSummary": {
+      "completed": 132,
+      "transferred": 0,
+      "earned": 132
+    },
+    "cumulativeGpa": 3.59,
+    "graduationStatus": "completed",
+    "requirementsFulfilled": true,
+    "award": null
+  },
+  "message": "Student academic review loaded.",
+  "meta": {}
+}
+```
+
+### `GET /issuer/students/:studentNumber/academic-preview`
+
+Returns read-only course results grouped by academic term. It does not return a
+transcript document, document/verification number, credential payload, or
+signature. Transfer results without an academic term appear in
+`unassignedResults`.
+
+```json
+{
+  "data": {
+    "studentNumber": "<student-number>",
+    "cumulativeGpa": 3.59,
+    "totalEarnedCredits": 132,
+    "transferCredits": 0,
+    "terms": [
+      {
+        "termCode": "2025/02",
+        "termLabel": "Academic Year 2025 Semester 2",
+        "academicYear": 2025,
+        "semesterNo": 2,
+        "gpa": 3.5,
+        "earnedCredits": 6,
+        "courses": [
+          {
+            "courseCode": "CSX0001",
+            "courseTitle": "Synthetic Course",
+            "credits": 3,
+            "grade": "A",
+            "resultType": "normal"
+          }
+        ]
+      }
+    ],
+    "unassignedResults": []
+  },
+  "message": "Student academic preview loaded.",
+  "meta": {}
+}
+```
+
+### `GET /issuer/graduating-students`
+
+Required query fields are `graduationDate=YYYY-MM-DD`, `facultyCode`, and
+`programCode`. `programCode` is used instead of a separate `majorCode`. The
+response uses the same safe student-summary fields as the student list and is
+limited to 100 matches.
+
+```json
+{
+  "data": {
+    "students": []
+  },
+  "message": "Graduating students loaded.",
+  "meta": {
+    "total": 0
+  }
+}
+```
+
+### `POST /issuer/students/wallet-eligibility:resolve`
+
+The request accepts 1–100 student numbers. Unknown student numbers deliberately
+return `not_verified`, the same as a known student without a verified AU
+connection, so the endpoint cannot be used to discover identities.
+
+```json
+{
+  "studentNumbers": ["<student-number>", "<unknown-number>"]
+}
+```
+
+```json
+{
+  "data": {
+    "results": [
+      {
+        "studentNumber": "<student-number>",
+        "status": "verified"
+      },
+      {
+        "studentNumber": "<unknown-number>",
+        "status": "not_verified"
+      }
+    ]
+  },
+  "message": "Wallet eligibility resolved.",
+  "meta": {}
+}
+```
+
+Stable errors are HTTP 400 `VALIDATION_ERROR`, HTTP 404
+`ISSUER_STUDENT_NOT_FOUND`, and HTTP 503
+`ISSUER_ACADEMIC_DATA_UNAVAILABLE`. Production returns the generic HTTP 404
+`NOT_FOUND` before any repository read.
+
+These endpoints stop before the final issue action. They do not create a
+transcript document or credential, sign anything, perform DID operations, or
+deliver anything to a wallet.
+
+## Development CORS and private-network testing
 
 Use the exact development origin:
 
@@ -80,14 +288,15 @@ ISSUER_UI_ORIGIN=http://localhost:5173
 The issuer frontend uses:
 
 ```dotenv
-VITE_API_BASE_URL=http://<current-backend-LAN-IP>:3000
+VITE_API_BASE_URL=http://<backend-tailscale-ip>:3000
 ```
 
-Determine the backend machine's current LAN address immediately before each
-test; do not assume a previously observed address. Run the issuer Vite server
-with `npm run dev -- --port 5173 --strictPort`. Origins remain an exact allow
-list; wildcard CORS is not enabled. See `issuer-dashboard-lan-testing.md` for
-the controlled runbook.
+Use the backend Mac's current private Tailscale IPv4 address in place of the
+placeholder; do not use the issuer laptop's or wallet phone's own address and
+do not commit a currently observed address. Run the issuer Vite server with
+`npm run dev -- --port 5173 --strictPort`. Origins remain an exact allow list;
+wildcard CORS is not enabled. See
+`issuer-dashboard-private-network-testing.md` for the controlled runbook.
 
 ## Wallet order
 
