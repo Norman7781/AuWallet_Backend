@@ -1,5 +1,11 @@
 # AU Wallet Backend API Contract: August 7 Frontend Integration Subset
 
+> Historical contract: the account-opening/onboarding meaning in this document
+> is superseded by the August 10 provider-connection contract. The historical
+> onboarding endpoints are no longer wired into the active module, and AU
+> verification no longer activates or disables a wallet account. See
+> `backend-api-contract-2026-08-10-provider-connections.md`.
+
 Target integration date: 2026-08-07
 
 This document describes the August 7 frontend integration subset implemented by
