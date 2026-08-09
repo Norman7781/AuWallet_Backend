@@ -311,9 +311,31 @@ wildcard CORS is not enabled. See
 
 AU verification is optional for entering and using the empty wallet.
 
+### Authentication email rate limit
+
+`POST /auth/register` and `POST /auth/resend-confirmation` translate the
+Supabase email-delivery limit into the same safe wallet contract. The backend
+does not return the upstream provider message:
+
+```json
+{
+  "error": {
+    "code": "AUTH_EMAIL_RATE_LIMITED",
+    "message": "Too many confirmation emails were requested. Please wait before trying again.",
+    "details": []
+  }
+}
+```
+
+The status is HTTP 429. The wallet must not retry automatically or invent a
+countdown when the response does not provide `Retry-After`.
+
 ## GET /issuer-providers
 
-Returns exactly the current backend-managed prototype catalog. Example item:
+Returns exactly the current backend-managed prototype catalogue for the
+wallet's Trusted Services UI. This is database-backed issuer discovery, not an
+external trust registry. The authenticated wallet calls NestJS; it never reads
+the provider table directly. Example item:
 
 ```json
 {
@@ -329,6 +351,11 @@ Returns exactly the current backend-managed prototype catalog. Example item:
 
 `demo-issuer-alpha` and `demo-issuer-beta` are synthetic placeholders with
 `availability: "coming_soon"` and `connectionEnabled: false`.
+
+The wallet should use `issuerCode` as the stable selection value and may keep
+local artwork keyed by that code. Provider `availability` and the holder's
+`connectionStatus` are separate fields so a coming-soon provider is never
+mistaken for a disconnected provider.
 
 ## GET /issuer-connections/me
 
@@ -421,17 +448,34 @@ Internal provider/connection IDs, academic IDs, passport input, normalized
 passport, passport HMAC, and factor-level mismatch diagnostics are never
 returned.
 
-## Superseded routes
+## Current-wallet compatibility routes
 
 - `POST /onboarding-verification/requests`
 - `GET /onboarding-verification/requests/me`
 
-These historical wallet-onboarding routes are not wired into the August 10
-application module. Wallet frontend code must use the issuer-provider and
-issuer-connection routes. The protected issuer-review routes are deprecated
-compatibility code, are excluded from this active contract, and are not needed
-for automatic AU verification.
+These authenticated student routes temporarily preserve the current wallet's
+old response vocabulary while using the same corrected automatic AU
+verification transaction as the issuer-connection routes. They do not restore
+manual review, document upload, holder activation, or the retired onboarding
+lifecycle.
+
+The POST accepts the same three-factor body documented above. It may return a
+terminal result immediately. The GET and POST translate only:
+
+- corrected `verified` to wallet `matched`;
+- corrected `rejected` to wallet `rejected` with
+  `IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED`;
+- a real active verification to wallet `under_review`;
+- no connection or `disconnected` to HTTP 404 `NOT_FOUND`.
+
+An existing verified connection continues to return `matched`. An active
+attempt returns HTTP 409 `ONBOARDING_REQUEST_ACTIVE`. The compatibility
+response contains only `onboardingRequestId`, `verificationStatus`, the safe
+generic `rejectionReason`, `reviewedAt`, and `submittedAt`. It never returns
+passport/HMAC values or holder, provider, connection, enrollment, Auth, or
+academic database IDs.
 
 This implementation stops at a verified connection. It does not retrieve a
 transcript, construct/sign/issue a credential, store a credential, upload a
-passport document, discover external issuers, or implement a trusted list.
+passport document, or discover external trust registries. The provider
+catalogue is a controlled prototype fixture, not a decentralized trusted list.

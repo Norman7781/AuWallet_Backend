@@ -88,6 +88,10 @@ Student provider APIs remain protected by a Bearer token:
 - `GET /issuer-connections/me`
 - `GET /issuer-connections/:issuerCode`
 - `POST /issuer-connections/:issuerCode/verification-requests`
+- `GET /onboarding-verification/requests/me` — current-wallet compatibility
+  view over the AU connection.
+- `POST /onboarding-verification/requests` — current-wallet compatibility
+  submission through the same automatic AU verification transaction.
 
 Dashboard activity represents only a verified AU academic connection. Never
 display personal-email wallet creation as identified student activity, and do

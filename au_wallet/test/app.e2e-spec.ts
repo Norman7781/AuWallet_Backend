@@ -182,7 +182,10 @@ class ControlledOnboardingWorkflow {
     return {
       onboardingRequestId: requestRecord.onboardingRequestId,
       verificationStatus: requestRecord.verificationStatus,
-      rejectionReason: requestRecord.rejectionReason,
+      rejectionReason:
+        requestRecord.verificationStatus === 'rejected'
+          ? 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED'
+          : null,
       reviewedAt: requestRecord.reviewedAt,
       submittedAt: requestRecord.submittedAt,
     };
@@ -843,17 +846,78 @@ describe('AU Wallet backend API (e2e)', () => {
     });
   });
 
-  it('does not expose the superseded wallet-onboarding endpoints', async () => {
+  it('keeps the wallet compatibility endpoints authenticated', async () => {
     await request(app.getHttpServer())
       .post('/onboarding-verification/requests')
-      .set('Authorization', 'Bearer student-role-fixture')
       .send({})
-      .expect(404);
+      .expect(401);
 
     await request(app.getHttpServer())
       .get('/onboarding-verification/requests/me')
+      .expect(401);
+  });
+
+  it('supports the wallet old-route contract through automatic AU verification', async () => {
+    const absent = await request(app.getHttpServer())
+      .get('/onboarding-verification/requests/me')
       .set('Authorization', 'Bearer student-role-fixture')
       .expect(404);
+
+    expect(absent.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
+
+    const submitted = await request(app.getHttpServer())
+      .post('/onboarding-verification/requests')
+      .set('Authorization', 'Bearer student-role-fixture')
+      .send({
+        admissionNo: 'DEMO-CURRENT',
+        dateOfBirth: '2001-02-03',
+        passportNumber: '<synthetic-input>',
+      })
+      .expect(201);
+
+    expect(submitted.body).toEqual({
+      data: {
+        onboardingRequestId: 1001,
+        verificationStatus: 'matched',
+        rejectionReason: null,
+        reviewedAt: null,
+        submittedAt: '2026-08-05T12:00:00.000Z',
+      },
+      message: 'Issuer connection verified.',
+      meta: {},
+    });
+
+    const loaded = await request(app.getHttpServer())
+      .get('/onboarding-verification/requests/me')
+      .set('Authorization', 'Bearer student-role-fixture')
+      .expect(200);
+
+    expect(loaded.body).toMatchObject({
+      data: {
+        onboardingRequestId: 1001,
+        verificationStatus: 'matched',
+        rejectionReason: null,
+      },
+    });
+  });
+
+  it('returns one generic wallet-compatible rejection outcome', async () => {
+    const rejected = await request(app.getHttpServer())
+      .post('/onboarding-verification/requests')
+      .set('Authorization', 'Bearer mismatch-role-fixture')
+      .send({
+        admissionNo: 'NO-MATCH',
+        dateOfBirth: '2001-02-03',
+        passportNumber: '<synthetic-input>',
+      })
+      .expect(201);
+
+    expect(rejected.body).toMatchObject({
+      data: {
+        verificationStatus: 'rejected',
+        rejectionReason: 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED',
+      },
+    });
   });
 
   it('protects the issuer review endpoints', async () => {

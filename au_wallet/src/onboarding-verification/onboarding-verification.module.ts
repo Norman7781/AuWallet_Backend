@@ -7,6 +7,7 @@ import { IssuerOnboardingRequestRepository } from './issuer-review/issuer-onboar
 import { IssuerReviewController } from './issuer-review/issuer-review.controller';
 import { IssuerReviewService } from './issuer-review/issuer-review.service';
 import { OnboardingRequestRepository } from './onboarding/onboarding-request.repository';
+import { OnboardingController } from './onboarding/onboarding.controller';
 import { OnboardingService } from './onboarding/onboarding.service';
 import {
   OnboardingApprovalFinalizer,
@@ -33,6 +34,7 @@ import { IssuerAcademicService } from './issuer-academic/issuer-academic.service
 @Module({
   imports: [AuthHolderAccountModule, UsersModule, ConfigModule, SupabaseModule],
   controllers: [
+    OnboardingController,
     IssuerReviewController,
     IssuerProviderController,
     IssuerConnectionController,

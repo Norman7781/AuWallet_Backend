@@ -5,6 +5,7 @@ import { IssuerOnboardingRequestRepository } from './issuer-review/issuer-onboar
 import { IssuerReviewController } from './issuer-review/issuer-review.controller';
 import { IssuerReviewService } from './issuer-review/issuer-review.service';
 import { OnboardingRequestRepository } from './onboarding/onboarding-request.repository';
+import { OnboardingController } from './onboarding/onboarding.controller';
 import { OnboardingService } from './onboarding/onboarding.service';
 import {
   OnboardingApprovalFinalizer,
@@ -44,6 +45,7 @@ describe('OnboardingVerificationModule', () => {
     expect(moduleRef.get(StudentMatchingService)).toBeDefined();
     expect(moduleRef.get(OnboardingRequestRepository)).toBeDefined();
     expect(moduleRef.get(OnboardingService)).toBeDefined();
+    expect(moduleRef.get(OnboardingController)).toBeDefined();
     expect(moduleRef.get(OnboardingApprovalFinalizer)).toBeInstanceOf(
       SupabaseOnboardingApprovalFinalizer,
     );

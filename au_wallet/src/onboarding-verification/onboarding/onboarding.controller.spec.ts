@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AccountStatus } from '../../auth-holder-account/common/enums/account-status.enum';
 import { UserRole } from '../../auth-holder-account/common/enums/role.enum';
 import { JwtAuthGuard } from '../../auth-holder-account/common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth-holder-account/common/guards/roles.guard';
@@ -14,7 +15,7 @@ const user: AuthenticatedUser = {
   holderAccountId: 12,
   email: 'synthetic-holder@example.test',
   role: UserRole.STUDENT,
-  accountStatus: null,
+  accountStatus: AccountStatus.ACTIVE,
 };
 
 const dto: CreateOnboardingRequestDto = {
@@ -72,5 +73,13 @@ describe('OnboardingController', () => {
       ForbiddenException,
     );
     expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the holder account is not active', () => {
+    const { controller, getMine } = createController();
+    const pendingHolder = { ...user, accountStatus: AccountStatus.PENDING };
+
+    expect(() => controller.getMine(pendingHolder)).toThrow(ForbiddenException);
+    expect(getMine).not.toHaveBeenCalled();
   });
 });
