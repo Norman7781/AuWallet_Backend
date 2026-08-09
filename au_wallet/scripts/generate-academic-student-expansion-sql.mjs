@@ -1,3 +1,7 @@
+// HISTORICAL ONE-TIME GENERATOR: this is guarded for the pre-catalogue,
+// single-program fixture sequence. Do not run it after the VMES catalogue
+// expansion. Use `npm run academic:validate-final:generate` to inspect the
+// final eight-program fixture without writing to the database.
 import { createHmac } from 'node:crypto';
 import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';

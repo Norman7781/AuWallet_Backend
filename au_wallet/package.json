@@ -21,11 +21,12 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:academic:generate": "node --env-file=.env.seed.local scripts/generate-academic-seed-sql.mjs",
-    "seed:academic:expand": "node --env-file=.env.seed.local scripts/generate-academic-student-expansion-sql.mjs",
-    "seed:academic:correct-curriculum": "node scripts/generate-academic-curriculum-correction-sql.mjs",
-    "seed:academic:remove-personal-email": "node scripts/generate-academic-personal-email-removal-sql.mjs",
-    "seed:academic:set-university-emails": "node scripts/generate-academic-university-email-sql.mjs"
+    "historical:academic:generate": "node --env-file=.env.seed.local scripts/generate-academic-seed-sql.mjs",
+    "historical:academic:expand": "node --env-file=.env.seed.local scripts/generate-academic-student-expansion-sql.mjs",
+    "historical:academic:correct-curriculum": "node scripts/generate-academic-curriculum-correction-sql.mjs",
+    "historical:academic:remove-personal-email": "node scripts/generate-academic-personal-email-removal-sql.mjs",
+    "historical:academic:set-university-emails": "node scripts/generate-academic-university-email-sql.mjs",
+    "academic:validate-final:generate": "node scripts/generate-academic-final-fixture-validation-sql.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

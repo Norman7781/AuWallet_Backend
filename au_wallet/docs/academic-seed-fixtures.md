@@ -8,9 +8,12 @@ transcript.
 
 ## Final fixture scope
 
+The following is the intended post-migration state. The catalogue migration is
+prepared locally and remains unapplied until separately approved.
+
 | Relation                              | Rows |
 | ------------------------------------- | ---: |
-| `academic.program`                    |    1 |
+| `academic.program`                    |    8 |
 | `academic.student`                    |   20 |
 | `academic.student_program_enrollment` |   20 |
 | `academic.course`                     |   74 |
@@ -19,12 +22,33 @@ transcript.
 | `academic.transcript`                 |   10 |
 | `academic.graduation_record`          |   10 |
 
-The program natural key is `SYN-VMES-CS`. It is a concentration-neutral,
-synthetic Bachelor of Science in Computer Science fixture under VMES with 132
-required credits. `major_concentration` is `NULL` because SED and IDS are
-student choices, not separate program rows. The current schema has no
-enrollment-level concentration column, so a fixture student's chosen path is
-represented by their major-elective results.
+The catalogue contains eight VMES undergraduate metadata rows: Applied
+Informatics, Aircraft Maintenance Engineering, Computer Engineering,
+Commercial Pilot License, Computer Science, Electrical Engineering,
+Mechatronics Engineering and Artificial Intelligence, and New Energy
+Automotive Engineering. The natural keys use the `SYN-VMES-*` prefix.
+
+Only `SYN-VMES-CS` has fixture students, enrollments, courses, results,
+transcripts, or graduation records. It remains the concentration-neutral,
+synthetic Bachelor of Science in Computer Science fixture with 132 required
+credits. `major_concentration` is `NULL` because SED and IDS are student
+choices, not separate program rows. The current schema has no enrollment-level
+concentration column, so a fixture student's chosen path is represented by
+their major-elective results. The other seven rows are programme catalogue
+metadata only; they do not imply an approved seeded curriculum.
+
+The non-null catalogue credit totals were checked against published AU/VMES
+programme materials on 2026-08-09: AIT 126, AME 141, CE 140, CPL 141, CS 132,
+EE 140, MCE-AI 136, and NEA 126. Sources:
+
+- [Applied Informatics](https://vmes.au.edu/2024-bsai-for-673-onward/)
+- [Aircraft Maintenance Engineering](https://vmes.au.edu/aircraft-maintenance-engineering-ame/)
+- [Computer Engineering](https://vmes.au.edu/computer-engineering-ce/)
+- [Commercial Pilot License](https://vmes.au.edu/commercial-pilot-license-cpl/)
+- [Computer Science](https://vmes.au.edu/2022-bscs-653/)
+- [Electrical Engineering](https://vmes.au.edu/electrical-engineering-ee/)
+- [Mechatronics Engineering and Artificial Intelligence](https://vmes.au.edu/mechatronics-engineering-and-artificial-intelligence-mce-ai/)
+- [New Energy Automotive Engineering](https://vmes.au.edu/new-energy-automotive-engineering-neae/)
 
 ## Curriculum model
 
@@ -166,8 +190,8 @@ matching factor.
 
 `wallet.holder_account.personal_email` remains required current contact and
 recovery information. Authentication verifies ownership of the wallet email
-independently through OTP or another approved account-verification mechanism.
-It is never verified by comparing it with an academic email.
+independently through Supabase's standard confirmation-link flow. It is never
+verified by comparing it with an academic email.
 
 Automatic academic matching uses exactly:
 
@@ -175,9 +199,9 @@ Automatic academic matching uses exactly:
 2. Date of birth.
 3. Passport-number HMAC.
 
-Failed automatic matches return one generic failure or manual-review outcome
-without revealing which factor differed. Official identity and enrollment
-data is returned only after all three factors match.
+Failed, ambiguous, or ineligible automatic matches return one generic
+unverified outcome without revealing which factor differed. An exact match
+requires exactly one eligible enrollment.
 
 ## Passport HMAC contract
 
@@ -197,37 +221,72 @@ Normalization remains:
 
 The curriculum correction contains no passport input, secret, or HMAC value.
 
-## Generators
+## Historical generators
+
+The five mutation generators below are retained only as an auditable record of
+the original sequential build. Their package commands are deliberately named
+`historical:academic:*`. They require exact earlier one-program states and are
+unsafe to treat as maintenance tools after the eight-program catalogue
+expansion.
 
 Generate a complete five-student base fixture:
 
 ```bash
-npm run seed:academic:generate -- /tmp/au-wallet-academic-v3.generated-seed.sql
+npm run historical:academic:generate -- /tmp/au-wallet-academic-v3.generated-seed.sql
 ```
 
 Generate the additive 15-student expansion:
 
 ```bash
-npm run seed:academic:expand -- /tmp/au-wallet-academic-expansion-v3.generated-seed.sql
+npm run historical:academic:expand -- /tmp/au-wallet-academic-expansion-v3.generated-seed.sql
 ```
 
 Generate the guarded correction for the currently installed 20-student
 fixture:
 
 ```bash
-npm run seed:academic:correct-curriculum -- /tmp/au-wallet-academic-curriculum-correction.sql
+npm run historical:academic:correct-curriculum -- /tmp/au-wallet-academic-curriculum-correction.sql
 ```
 
 Generate the guarded, idempotent university-email assignment for the installed
 20-student fixture:
 
 ```bash
-npm run seed:academic:set-university-emails -- /tmp/au-wallet-academic-university-email.sql
+npm run historical:academic:set-university-emails -- /tmp/au-wallet-academic-university-email.sql
 ```
+
+The personal-email removal step is likewise retained only as
+`historical:academic:remove-personal-email`.
 
 Each generated file is mode `0600`. The base and expansion artifacts contain
 derived passport HMACs and must remain temporary. Generators never connect to
 Supabase by themselves.
+
+These generators are historical, sequential fixture builders whose guarded
+preconditions intentionally describe the earlier single-program CS state.
+They must run before
+`20260809080520_expand_vmes_undergraduate_catalogue.sql`. The catalogue
+migration is the only supported forward step from the final 20-student CS
+fixture to the eight-row programme catalogue; the historical generators must
+not be rerun against that expanded state.
+
+## Read-only final-fixture validation
+
+Generate the supported final-state validator with:
+
+```bash
+npm run academic:validate-final:generate -- /tmp/au-wallet-academic-final-fixture-validation.sql
+```
+
+The generated SQL starts a read-only transaction and returns aggregate counts
+and check booleans only. It does not return student identity, passport-derived
+values, grades, or transcript contents. Execute it through an approved
+read-only database channel and require `all_checks_pass = true`.
+
+It validates the exact eight approved catalogue natural keys and credit totals,
+20 CS students and enrollments, 74 CS courses, 12 terms, 649 results, 10
+transcripts, 10 graduation records, zero enrollments/courses for the seven
+catalogue-only programs, and zero non-null academic personal emails.
 
 The university-email transaction derives each address from the database-owned
 student identity, updates only approved synthetic student email fields, and
