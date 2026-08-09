@@ -231,6 +231,56 @@ describe('AuthService', () => {
     });
   });
 
+  it('maps the Supabase signup email limit to the safe frontend contract', async () => {
+    const { service, findByPersonalEmail, signUp } = createService();
+    findByPersonalEmail.mockResolvedValue(null);
+    signUp.mockResolvedValue({
+      data: { user: null },
+      error: {
+        code: 'over_email_send_rate_limit',
+        message: 'raw Supabase rate-limit detail',
+      },
+    });
+
+    await expect(
+      service.register({
+        firstName: 'Student',
+        lastName: 'Example',
+        personalEmail: 'student@example.test',
+        password: 'Password1',
+      }),
+    ).rejects.toMatchObject({
+      status: 429,
+      response: {
+        code: 'AUTH_EMAIL_RATE_LIMITED',
+        message:
+          'Too many confirmation emails were requested. Please wait before trying again.',
+      },
+    });
+  });
+
+  it('uses the same safe email-limit contract for confirmation resend', async () => {
+    const { service, resend } = createService();
+    resend.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'over_email_send_rate_limit',
+        message: 'raw Supabase rate-limit detail',
+      },
+    });
+
+    await expect(
+      service.resendConfirmation('student@example.test'),
+    ).rejects.toMatchObject({
+      status: 429,
+      response: {
+        code: 'AUTH_EMAIL_RATE_LIMITED',
+        message:
+          'Too many confirmation emails were requested. Please wait before trying again.',
+      },
+    });
+  });
+
   it('identifies the login role from app metadata and resolves the holder by email', async () => {
     const {
       service,

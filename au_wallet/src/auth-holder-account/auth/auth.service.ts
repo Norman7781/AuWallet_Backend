@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -53,6 +55,8 @@ export class AuthService {
     });
 
     if (error) {
+      this.assertEmailDeliveryNotRateLimited(error);
+
       if (
         error.code === 'email_exists' ||
         error.code === 'user_already_exists'
@@ -224,6 +228,7 @@ export class AuthService {
       });
 
     if (error) {
+      this.assertEmailDeliveryNotRateLimited(error);
       throw new BadRequestException('Unable to resend the confirmation email');
     }
 
@@ -231,6 +236,19 @@ export class AuthService {
       message:
         'If the account is awaiting confirmation, a new email has been sent.',
     };
+  }
+
+  private assertEmailDeliveryNotRateLimited(error: { code?: string }): void {
+    if (error.code !== 'over_email_send_rate_limit') return;
+
+    throw new HttpException(
+      {
+        code: 'AUTH_EMAIL_RATE_LIMITED',
+        message:
+          'Too many confirmation emails were requested. Please wait before trying again.',
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
   async refresh(refreshToken: string) {
