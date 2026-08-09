@@ -85,10 +85,86 @@ type LoginHistoryTable = {
 export type OnboardingVerificationStatus =
   'submitted' | 'under_review' | 'matched' | 'rejected';
 
+export type IssuerAvailability = 'available' | 'coming_soon' | 'disabled';
+export type IssuerConnectionStatus =
+  'pending_verification' | 'verified' | 'rejected' | 'disconnected';
+
+type IssuerProviderTable = {
+  Row: {
+    issuer_provider_id: number;
+    issuer_code: string;
+    display_name: string;
+    description: string;
+    availability: IssuerAvailability;
+    connection_verification_enabled: boolean;
+    is_mock: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    issuer_provider_id?: number;
+    issuer_code: string;
+    display_name: string;
+    description: string;
+    availability: IssuerAvailability;
+    connection_verification_enabled?: boolean;
+    is_mock?: boolean;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: {
+    issuer_provider_id?: number;
+    issuer_code?: string;
+    display_name?: string;
+    description?: string;
+    availability?: IssuerAvailability;
+    connection_verification_enabled?: boolean;
+    is_mock?: boolean;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Relationships: [];
+};
+
+type HolderIssuerConnectionTable = {
+  Row: {
+    holder_issuer_connection_id: number;
+    holder_account_id: number;
+    issuer_provider_id: number;
+    connection_status: IssuerConnectionStatus;
+    verified_enrollment_id: number | null;
+    verified_at: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    holder_issuer_connection_id?: number;
+    holder_account_id: number;
+    issuer_provider_id: number;
+    connection_status?: IssuerConnectionStatus;
+    verified_enrollment_id?: number | null;
+    verified_at?: string | null;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: {
+    holder_issuer_connection_id?: number;
+    holder_account_id?: number;
+    issuer_provider_id?: number;
+    connection_status?: IssuerConnectionStatus;
+    verified_enrollment_id?: number | null;
+    verified_at?: string | null;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Relationships: [];
+};
+
 type WalletOnboardingRequestTable = {
   Row: {
     onboarding_request_id: number;
     holder_account_id: number;
+    holder_issuer_connection_id: number;
     admission_no: string;
     date_of_birth: string;
     passport_number_hmac: string;
@@ -102,6 +178,7 @@ type WalletOnboardingRequestTable = {
   Insert: {
     onboarding_request_id?: number;
     holder_account_id: number;
+    holder_issuer_connection_id: number;
     admission_no: string;
     date_of_birth: string;
     passport_number_hmac: string;
@@ -115,6 +192,7 @@ type WalletOnboardingRequestTable = {
   Update: {
     onboarding_request_id?: number;
     holder_account_id?: number;
+    holder_issuer_connection_id?: number;
     admission_no?: string;
     date_of_birth?: string;
     passport_number_hmac?: string;
@@ -163,6 +241,8 @@ export type Database = {
   wallet: {
     Tables: {
       holder_account: HolderAccountTable;
+      holder_issuer_connection: HolderIssuerConnectionTable;
+      issuer_provider: IssuerProviderTable;
       login_history: LoginHistoryTable;
       uploaded_identity_document: UntypedTable;
       wallet_onboarding_request: WalletOnboardingRequestTable;
@@ -178,12 +258,52 @@ export type Database = {
         };
         Returns: {
           onboarding_request_id: number;
-          holder_account_id: number;
+          holder_issuer_connection_id: number;
+          issuer_code: string;
+          connection_status: IssuerConnectionStatus;
           verification_status: OnboardingVerificationStatus;
           matched_enrollment_id: number | null;
           rejection_reason: string | null;
           reviewed_at: string | null;
           submitted_at: string;
+          verified_at: string;
+        }[];
+      };
+      reject_issuer_verification_request: {
+        Args: {
+          p_onboarding_request_id: number;
+          p_reviewed_by: string;
+          p_rejection_reason: string;
+        };
+        Returns: {
+          onboarding_request_id: number;
+          holder_issuer_connection_id: number;
+          issuer_code: string;
+          connection_status: IssuerConnectionStatus;
+          verification_status: OnboardingVerificationStatus;
+          matched_enrollment_id: number | null;
+          rejection_reason: string | null;
+          reviewed_at: string | null;
+          submitted_at: string;
+          verified_at: string | null;
+        }[];
+      };
+      submit_issuer_connection_verification: {
+        Args: {
+          p_holder_account_id: number;
+          p_issuer_code: string;
+          p_admission_no: string;
+          p_date_of_birth: string;
+          p_passport_number_hmac: string;
+        };
+        Returns: {
+          issuer_code: string;
+          connection_status: IssuerConnectionStatus;
+          verification_status: OnboardingVerificationStatus;
+          rejection_reason: string | null;
+          submitted_at: string;
+          reviewed_at: string | null;
+          verified_at: string | null;
         }[];
       };
     };
