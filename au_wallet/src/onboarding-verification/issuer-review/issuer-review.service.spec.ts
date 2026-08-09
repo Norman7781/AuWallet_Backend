@@ -57,6 +57,7 @@ function createService() {
   const rejectUnderReview = jest.fn();
   const findReviewContexts = jest.fn();
   const approve = jest.fn();
+  const reject = jest.fn();
   const service = new IssuerReviewService(
     {
       listUnderReview,
@@ -65,6 +66,7 @@ function createService() {
     } as unknown as IssuerOnboardingRequestRepository,
     { findReviewContexts } as unknown as AcademicStudentRepository,
     { approve },
+    { reject },
   );
 
   return {
@@ -74,6 +76,7 @@ function createService() {
     rejectUnderReview,
     findReviewContexts,
     approve,
+    reject,
   };
 }
 
@@ -131,12 +134,15 @@ describe('IssuerReviewService', () => {
       );
       dependencies.approve.mockResolvedValue({
         onboardingRequestId: 101,
-        holderAccountId: 12,
+        holderIssuerConnectionId: 22,
+        issuerCode: 'assumption-university',
+        connectionStatus: 'verified',
         verificationStatus: 'matched',
         matchedEnrollmentId: 55,
         rejectionReason: null,
         reviewedAt: '2026-08-04T11:00:00.000Z',
         submittedAt: '2026-08-04T10:00:00.000Z',
+        verifiedAt: '2026-08-04T11:00:00.000Z',
       });
 
       const response = await dependencies.service.decide(
@@ -194,14 +200,20 @@ describe('IssuerReviewService', () => {
     dependencies.findReviewContexts.mockResolvedValue(
       new Map([[55, academicContext()]]),
     );
-    dependencies.rejectUnderReview.mockImplementation(
-      (input: { reviewedBy: string; reviewedAt: string }) =>
-        Promise.resolve({
-          ...reviewRequest('rejected'),
-          reviewedAt: input.reviewedAt,
-          rejectionReason:
-            IssuerRejectionReason.IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED,
-        }),
+    dependencies.reject.mockImplementation(() =>
+      Promise.resolve({
+        onboardingRequestId: 101,
+        holderIssuerConnectionId: 22,
+        issuerCode: 'assumption-university',
+        connectionStatus: 'rejected',
+        verificationStatus: 'rejected',
+        matchedEnrollmentId: 55,
+        reviewedAt: '2026-08-04T11:00:00.000Z',
+        rejectionReason:
+          IssuerRejectionReason.IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED,
+        submittedAt: '2026-08-04T10:00:00.000Z',
+        verifiedAt: null,
+      }),
     );
 
     const response = await dependencies.service.decide(
@@ -214,7 +226,7 @@ describe('IssuerReviewService', () => {
       },
     );
 
-    expect(dependencies.rejectUnderReview).toHaveBeenCalledWith(
+    expect(dependencies.reject).toHaveBeenCalledWith(
       expect.objectContaining({
         onboardingRequestId: 101,
         reviewedBy: '00000000-0000-4000-8000-000000000002',
@@ -250,8 +262,8 @@ describe('IssuerReviewService', () => {
     );
     dependencies.approve.mockRejectedValue(
       new ConflictException({
-        code: 'REVIEW_NOT_APPROVABLE',
-        message: 'This onboarding request cannot be approved.',
+        code: 'ISSUER_VERIFICATION_NOT_APPROVABLE',
+        message: 'This issuer verification cannot be approved.',
       }),
     );
 
@@ -261,7 +273,7 @@ describe('IssuerReviewService', () => {
       }),
     ).rejects.toMatchObject({
       response: {
-        code: 'REVIEW_NOT_APPROVABLE',
+        code: 'ISSUER_VERIFICATION_NOT_APPROVABLE',
       },
     });
   });

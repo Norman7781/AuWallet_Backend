@@ -163,7 +163,7 @@ export class HolderAccountService {
   ): Promise<HolderAccount> {
     if (accountStatus === AccountStatus.ACTIVE) {
       throw new ConflictException(
-        'A holder account can only be activated by verified onboarding',
+        'A holder account can only be activated after confirmed login',
       );
     }
 
@@ -191,6 +191,44 @@ export class HolderAccountService {
     }
 
     return toHolderAccount(data);
+  }
+
+  async activateAfterConfirmedLogin(
+    authUserId: string,
+    confirmedAt: string,
+  ): Promise<HolderAccount> {
+    const holder = await this.requireByAuthUserId(authUserId);
+
+    if (holder.accountStatus !== AccountStatus.PENDING) {
+      return holder;
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .schema('wallet')
+      .from('holder_account')
+      .update({
+        account_status: AccountStatus.ACTIVE,
+        confirmed_at: holder.confirmedAt ?? confirmedAt,
+        updated_at: now,
+      })
+      .eq('auth_user_id', authUserId)
+      .eq('account_status', AccountStatus.PENDING)
+      .select(HOLDER_ACCOUNT_COLUMNS)
+      .maybeSingle();
+
+    if (error) {
+      throw new InternalServerErrorException(
+        'Unable to activate the holder account',
+      );
+    }
+
+    if (data) {
+      return toHolderAccount(data);
+    }
+
+    // A concurrent confirmed login may have completed the same transition.
+    return this.requireByAuthUserId(authUserId);
   }
 
   private async requireByAuthUserId(

@@ -13,6 +13,7 @@ import {
 interface OnboardingRequestRow {
   onboarding_request_id: number;
   holder_account_id: number;
+  holder_issuer_connection_id: number;
   verification_status: OnboardingVerificationStatus;
   matched_enrollment_id: number | null;
   rejection_reason: string | null;
@@ -21,12 +22,13 @@ interface OnboardingRequestRow {
 }
 
 const SAFE_COLUMNS =
-  'onboarding_request_id, holder_account_id, verification_status, matched_enrollment_id, rejection_reason, reviewed_at, submitted_at';
+  'onboarding_request_id, holder_account_id, holder_issuer_connection_id, verification_status, matched_enrollment_id, rejection_reason, reviewed_at, submitted_at';
 
 function toRecord(row: OnboardingRequestRow): OnboardingRequestRecord {
   return {
     onboardingRequestId: row.onboarding_request_id,
     holderAccountId: row.holder_account_id,
+    holderIssuerConnectionId: row.holder_issuer_connection_id,
     verificationStatus: row.verification_status,
     matchedEnrollmentId: row.matched_enrollment_id,
     rejectionReason: row.rejection_reason,
@@ -39,27 +41,16 @@ function toRecord(row: OnboardingRequestRow): OnboardingRequestRecord {
 export class OnboardingRequestRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async findLatestByHolderAccountId(
-    holderAccountId: number,
+  async findLatestByConnectionId(
+    holderIssuerConnectionId: number,
   ): Promise<OnboardingRequestRecord | null> {
-    const { data, error } = await this.supabase
-      .schema('wallet')
-      .from('wallet_onboarding_request')
-      .select(SAFE_COLUMNS)
-      .eq('holder_account_id', holderAccountId)
-      .order('submitted_at', { ascending: false })
-      .order('onboarding_request_id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .overrideTypes<OnboardingRequestRow | null, { merge: false }>();
+    return this.findByConnection(holderIssuerConnectionId, false);
+  }
 
-    if (error) {
-      throw new InternalServerErrorException(
-        'Unable to load the onboarding request',
-      );
-    }
-
-    return data ? toRecord(data) : null;
+  async findActiveByConnectionId(
+    holderIssuerConnectionId: number,
+  ): Promise<OnboardingRequestRecord | null> {
+    return this.findByConnection(holderIssuerConnectionId, true);
   }
 
   async createRequest(
@@ -70,6 +61,7 @@ export class OnboardingRequestRepository {
       .from('wallet_onboarding_request')
       .insert({
         holder_account_id: input.holderAccountId,
+        holder_issuer_connection_id: input.holderIssuerConnectionId,
         admission_no: input.admissionNo,
         date_of_birth: input.dateOfBirth,
         passport_number_hmac: input.passportNumberHmac,
@@ -84,8 +76,8 @@ export class OnboardingRequestRepository {
     if (error) {
       if (error.code === '23505') {
         throw new ConflictException({
-          code: 'ONBOARDING_REQUEST_ACTIVE',
-          message: 'An active onboarding request already exists.',
+          code: 'ISSUER_VERIFICATION_ACTIVE',
+          message: 'An active issuer verification already exists.',
         });
       }
 
@@ -95,5 +87,35 @@ export class OnboardingRequestRepository {
     }
 
     return toRecord(data);
+  }
+
+  private async findByConnection(
+    holderIssuerConnectionId: number,
+    activeOnly: boolean,
+  ): Promise<OnboardingRequestRecord | null> {
+    let query = this.supabase
+      .schema('wallet')
+      .from('wallet_onboarding_request')
+      .select(SAFE_COLUMNS)
+      .eq('holder_issuer_connection_id', holderIssuerConnectionId);
+
+    if (activeOnly) {
+      query = query.in('verification_status', ['submitted', 'under_review']);
+    }
+
+    const { data, error } = await query
+      .order('submitted_at', { ascending: false })
+      .order('onboarding_request_id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .overrideTypes<OnboardingRequestRow | null, { merge: false }>();
+
+    if (error) {
+      throw new InternalServerErrorException(
+        'Unable to load the issuer verification request',
+      );
+    }
+
+    return data ? toRecord(data) : null;
   }
 }

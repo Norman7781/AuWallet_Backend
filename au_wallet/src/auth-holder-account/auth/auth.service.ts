@@ -151,11 +151,26 @@ export class AuthService {
       email: data.user.email,
       app_metadata: data.user.app_metadata,
     }).value;
-    const holder = await this.holderAccountService.findByAuthUserId(
-      data.user.id,
-    );
+    let holder = await this.holderAccountService.findByAuthUserId(data.user.id);
 
     this.assertAccountEnabled(role, holder);
+
+    if (role === UserRole.STUDENT && holder) {
+      const confirmedAt = data.user.email_confirmed_at;
+
+      if (!confirmedAt) {
+        throw new UnauthorizedException({
+          code: 'EMAIL_NOT_CONFIRMED',
+          message: 'Confirm your email before logging in.',
+        });
+      }
+
+      holder = await this.holderAccountService.activateAfterConfirmedLogin(
+        data.user.id,
+        confirmedAt,
+      );
+      this.assertAccountEnabled(role, holder);
+    }
 
     await this.loginHistoryService.recordSuccess({
       authUserId: data.user.id,

@@ -17,6 +17,7 @@ function createService() {
   const findByPersonalEmail = jest.fn();
   const findByAuthUserId = jest.fn();
   const createPending = jest.fn();
+  const activateAfterConfirmedLogin = jest.fn();
   const identifyRole = jest.fn();
   const recordFailure = jest.fn();
   const recordSuccess = jest.fn();
@@ -44,6 +45,7 @@ function createService() {
       findByPersonalEmail,
       findByAuthUserId,
       createPending,
+      activateAfterConfirmedLogin,
     } as unknown as HolderAccountService,
     { identifyRole },
     {
@@ -65,6 +67,7 @@ function createService() {
     findByPersonalEmail,
     findByAuthUserId,
     createPending,
+    activateAfterConfirmedLogin,
     identifyRole,
     recordSuccess,
     recordLogout,
@@ -235,12 +238,14 @@ describe('AuthService', () => {
       findByAuthUserId,
       identifyRole,
       recordSuccess,
+      activateAfterConfirmedLogin,
     } = createService();
     signInWithPassword.mockResolvedValue({
       data: {
         user: {
           id: 'auth-user-id',
           email: 'student@example.com',
+          email_confirmed_at: '2026-08-09T00:00:00.000Z',
           app_metadata: { role: 'student' },
         },
         session: {
@@ -256,6 +261,12 @@ describe('AuthService', () => {
       source: 'app_metadata',
     });
     findByAuthUserId.mockResolvedValue({
+      holderAccountId: 25,
+      authUserId: 'auth-user-id',
+      personalEmail: 'student@example.com',
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    activateAfterConfirmedLogin.mockResolvedValue({
       holderAccountId: 25,
       authUserId: 'auth-user-id',
       personalEmail: 'student@example.com',
@@ -279,6 +290,92 @@ describe('AuthService', () => {
       },
     });
     expect(findByAuthUserId).toHaveBeenCalledWith('auth-user-id');
+  });
+
+  it('activates a pending student on the first confirmed login', async () => {
+    const dependencies = createService();
+    dependencies.signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          id: 'auth-user-id',
+          email: 'student@example.test',
+          email_confirmed_at: '2026-08-09T00:30:00.000Z',
+          app_metadata: { role: 'student' },
+        },
+        session: {
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          expires_at: 123456,
+        },
+      },
+      error: null,
+    });
+    dependencies.identifyRole.mockReturnValue({
+      value: UserRole.STUDENT,
+      rawValue: 'student',
+      source: 'app_metadata',
+    });
+    dependencies.findByAuthUserId.mockResolvedValue({
+      holderAccountId: 25,
+      authUserId: 'auth-user-id',
+      personalEmail: 'student@example.test',
+      accountStatus: AccountStatus.PENDING,
+    });
+    dependencies.activateAfterConfirmedLogin.mockResolvedValue({
+      holderAccountId: 25,
+      authUserId: 'auth-user-id',
+      personalEmail: 'student@example.test',
+      accountStatus: AccountStatus.ACTIVE,
+      confirmedAt: '2026-08-09T00:30:00.000Z',
+    });
+
+    const response = await dependencies.service.login({
+      email: 'student@example.test',
+      password: 'Password1',
+    });
+
+    expect(dependencies.activateAfterConfirmedLogin).toHaveBeenCalledWith(
+      'auth-user-id',
+      '2026-08-09T00:30:00.000Z',
+    );
+    expect(response.data.user.accountStatus).toBe(AccountStatus.ACTIVE);
+  });
+
+  it('does not activate a pending holder during refresh', async () => {
+    const dependencies = createService();
+    dependencies.refreshSession.mockResolvedValue({
+      data: {
+        user: {
+          id: 'auth-user-id',
+          email: 'student@example.test',
+          app_metadata: { role: 'student' },
+        },
+        session: {
+          access_token: 'new-access-token',
+          refresh_token: 'new-refresh-token',
+          expires_at: 123456,
+        },
+      },
+      error: null,
+    });
+    dependencies.identifyRole.mockReturnValue({
+      value: UserRole.STUDENT,
+      rawValue: 'student',
+      source: 'app_metadata',
+    });
+    dependencies.findByAuthUserId.mockResolvedValue({
+      holderAccountId: 25,
+      authUserId: 'auth-user-id',
+      personalEmail: 'student@example.test',
+      accountStatus: AccountStatus.PENDING,
+    });
+
+    await expect(
+      dependencies.service.refresh('synthetic-refresh-token'),
+    ).resolves.toMatchObject({
+      data: { user: { accountStatus: AccountStatus.PENDING } },
+    });
+    expect(dependencies.activateAfterConfirmedLogin).not.toHaveBeenCalled();
   });
 
   it('maps Supabase email_not_confirmed to EMAIL_NOT_CONFIRMED', async () => {

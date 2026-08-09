@@ -22,6 +22,7 @@ import {
 } from '../student-matching/academic-student-record.interface';
 import { AcademicStudentRepository } from '../student-matching/academic-student.repository';
 import { OnboardingApprovalFinalizer } from '../onboarding/verified-onboarding-finalizer';
+import { OnboardingRejectionFinalizer } from '../onboarding/verified-onboarding-finalizer';
 
 const ELIGIBLE_STATUSES = new Set<AcademicStatus>([
   'studying',
@@ -35,6 +36,7 @@ export class IssuerReviewService {
     private readonly requests: IssuerOnboardingRequestRepository,
     private readonly academics: AcademicStudentRepository,
     private readonly approvalFinalizer: OnboardingApprovalFinalizer,
+    private readonly rejectionFinalizer: OnboardingRejectionFinalizer,
   ) {}
 
   async list(
@@ -49,7 +51,7 @@ export class IssuerReviewService {
       data: result.records.map((record) =>
         this.toPublic(record, this.contextFor(record, contexts)),
       ),
-      message: 'Onboarding review queue loaded.',
+      message: 'Issuer verification review queue loaded.',
       meta: { page, limit, total: result.total },
     };
   }
@@ -62,7 +64,7 @@ export class IssuerReviewService {
 
     return {
       data: this.toPublic(record, this.contextFor(record, contexts)),
-      message: 'Onboarding request loaded.',
+      message: 'Issuer verification request loaded.',
       meta: {},
     };
   }
@@ -80,8 +82,8 @@ export class IssuerReviewService {
 
     if (record.verificationStatus !== 'under_review') {
       throw new ConflictException({
-        code: 'REVIEW_ALREADY_DECIDED',
-        message: 'This onboarding request is no longer under review.',
+        code: 'ISSUER_VERIFICATION_ALREADY_DECIDED',
+        message: 'This issuer verification is no longer under review.',
       });
     }
 
@@ -91,16 +93,22 @@ export class IssuerReviewService {
       );
     }
 
-    const rejected = await this.requests.rejectUnderReview({
+    const rejectedResult = await this.rejectionFinalizer.reject({
       onboardingRequestId,
       reviewedBy,
       rejectionReason: dto.rejectionReason,
-      reviewedAt: new Date().toISOString(),
     });
+    const rejected: IssuerOnboardingRequestRecord = {
+      ...record,
+      verificationStatus: rejectedResult.verificationStatus,
+      matchedEnrollmentId: rejectedResult.matchedEnrollmentId,
+      reviewedAt: rejectedResult.reviewedAt,
+      rejectionReason: rejectedResult.rejectionReason,
+    };
 
     return {
       data: this.toPublic(rejected, await this.loadContextForRecord(rejected)),
-      message: 'Onboarding request rejected.',
+      message: 'Issuer verification rejected.',
       meta: {},
     };
   }
@@ -168,8 +176,8 @@ export class IssuerReviewService {
   ): Promise<IssuerOnboardingRequestResponse> {
     if (record.verificationStatus !== 'under_review') {
       throw new ConflictException({
-        code: 'REVIEW_ALREADY_DECIDED',
-        message: 'This onboarding request is no longer under review.',
+        code: 'ISSUER_VERIFICATION_ALREADY_DECIDED',
+        message: 'This issuer verification is no longer under review.',
       });
     }
 
@@ -177,8 +185,8 @@ export class IssuerReviewService {
 
     if (!this.canApprove(record, context)) {
       throw new ConflictException({
-        code: 'REVIEW_NOT_APPROVABLE',
-        message: 'This onboarding request cannot be approved.',
+        code: 'ISSUER_VERIFICATION_NOT_APPROVABLE',
+        message: 'This issuer verification cannot be approved.',
       });
     }
 
@@ -196,7 +204,7 @@ export class IssuerReviewService {
 
     return {
       data: this.toPublic(approvedRecord, context),
-      message: 'Onboarding request approved.',
+      message: 'Issuer connection verified.',
       meta: {},
     };
   }

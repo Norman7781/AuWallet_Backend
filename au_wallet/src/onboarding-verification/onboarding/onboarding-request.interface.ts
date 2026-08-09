@@ -4,6 +4,7 @@ export type OnboardingVerificationStatus =
 export interface OnboardingRequestRecord {
   onboardingRequestId: number;
   holderAccountId: number;
+  holderIssuerConnectionId: number;
   verificationStatus: OnboardingVerificationStatus;
   matchedEnrollmentId: number | null;
   rejectionReason: string | null;
@@ -13,6 +14,7 @@ export interface OnboardingRequestRecord {
 
 export interface CreateOnboardingRequestInput {
   holderAccountId: number;
+  holderIssuerConnectionId: number;
   admissionNo: string;
   dateOfBirth: string;
   passportNumberHmac: string;

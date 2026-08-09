@@ -1,7 +1,4 @@
-import {
-  ConflictException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { IssuerOnboardingRequestRepository } from './issuer-onboarding-request.repository';
 
@@ -96,52 +93,6 @@ describe('IssuerOnboardingRequestRepository', () => {
       submittedAt: '2026-08-04T10:00:00.000Z',
     });
     expect(query.eq).toHaveBeenCalledWith('onboarding_request_id', 101);
-  });
-
-  it('records the authenticated reviewer and controlled rejection', async () => {
-    const rejectedRow = {
-      ...row,
-      verification_status: 'rejected',
-      reviewed_at: '2026-08-04T11:00:00.000Z',
-      rejection_reason: 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED',
-    };
-    const { repository, query } = createRepository({
-      data: rejectedRow,
-      error: null,
-    });
-
-    const result = await repository.rejectUnderReview({
-      onboardingRequestId: 101,
-      reviewedBy: '00000000-0000-4000-8000-000000000002',
-      reviewedAt: '2026-08-04T11:00:00.000Z',
-      rejectionReason: 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED',
-    });
-
-    expect(query.update).toHaveBeenCalledWith({
-      verification_status: 'rejected',
-      reviewed_by: '00000000-0000-4000-8000-000000000002',
-      reviewed_at: '2026-08-04T11:00:00.000Z',
-      rejection_reason: 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED',
-    });
-    expect(query.eq).toHaveBeenCalledWith(
-      'verification_status',
-      'under_review',
-    );
-    expect(result.verificationStatus).toBe('rejected');
-    expect(result.matchedEnrollmentId).toBe(55);
-  });
-
-  it('reports a concurrent or repeated decision as a conflict', async () => {
-    const { repository } = createRepository({ data: null, error: null });
-
-    await expect(
-      repository.rejectUnderReview({
-        onboardingRequestId: 101,
-        reviewedBy: '00000000-0000-4000-8000-000000000002',
-        reviewedAt: '2026-08-04T11:00:00.000Z',
-        rejectionReason: 'IDENTITY_INFORMATION_COULD_NOT_BE_CONFIRMED',
-      }),
-    ).rejects.toThrow(ConflictException);
   });
 
   it('does not convert database errors into an empty queue', async () => {

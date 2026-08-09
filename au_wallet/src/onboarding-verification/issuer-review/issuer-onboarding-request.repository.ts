@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { OnboardingVerificationStatus } from '../onboarding/onboarding-request.interface';
 import {
@@ -90,42 +86,5 @@ export class IssuerOnboardingRequestRepository {
     }
 
     return data ? toRecord(data) : null;
-  }
-
-  async rejectUnderReview(input: {
-    onboardingRequestId: number;
-    reviewedBy: string;
-    rejectionReason: string;
-    reviewedAt: string;
-  }): Promise<IssuerOnboardingRequestRecord> {
-    const { data, error } = await this.supabase
-      .schema('wallet')
-      .from('wallet_onboarding_request')
-      .update({
-        verification_status: 'rejected',
-        reviewed_by: input.reviewedBy,
-        reviewed_at: input.reviewedAt,
-        rejection_reason: input.rejectionReason,
-      })
-      .eq('onboarding_request_id', input.onboardingRequestId)
-      .eq('verification_status', 'under_review')
-      .select(ISSUER_SAFE_COLUMNS)
-      .maybeSingle()
-      .overrideTypes<IssuerOnboardingRequestRow | null, { merge: false }>();
-
-    if (error) {
-      throw new InternalServerErrorException(
-        'Unable to update the onboarding request',
-      );
-    }
-
-    if (!data) {
-      throw new ConflictException({
-        code: 'REVIEW_ALREADY_DECIDED',
-        message: 'This onboarding request is no longer under review.',
-      });
-    }
-
-    return toRecord(data);
   }
 }

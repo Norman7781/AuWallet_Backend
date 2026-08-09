@@ -91,7 +91,7 @@ describe('StudentMatchingService', () => {
     },
   );
 
-  it('sends no exact identity match to manual review', async () => {
+  it('returns an unconfirmed result for no exact identity match', async () => {
     const { service, findExactIdentity } = createService();
     findExactIdentity.mockResolvedValue({
       studentMatchCount: 0,
@@ -145,7 +145,7 @@ describe('StudentMatchingService', () => {
     });
   });
 
-  it('sends a student without enrollment data to manual review', async () => {
+  it('returns an unconfirmed result when enrollment data is absent', async () => {
     const { service, findExactIdentity } = createService();
     findExactIdentity.mockResolvedValue({
       studentMatchCount: 1,
