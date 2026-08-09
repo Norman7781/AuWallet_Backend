@@ -8,15 +8,14 @@ transcript.
 
 ## Final fixture scope
 
-The following is the intended post-migration state. The catalogue migration is
-prepared locally and remains unapplied until separately approved.
+The following is the intended corrected post-migration state.
 
 | Relation                              | Rows |
 | ------------------------------------- | ---: |
 | `academic.program`                    |    8 |
 | `academic.student`                    |   20 |
 | `academic.student_program_enrollment` |   20 |
-| `academic.course`                     |   74 |
+| `academic.course`                     |   70 |
 | `academic.academic_term`              |   12 |
 | `academic.course_result`              |  649 |
 | `academic.transcript`                 |   10 |
@@ -52,22 +51,23 @@ EE 140, MCE-AI 136, and NEA 126. Sources:
 
 ## Curriculum model
 
-The catalog in
-`scripts/academic-curriculum-fixture.mjs` contains the 70 curriculum
-definitions supplied for this task plus four clearly marked synthetic free
-electives. The four synthetic rows are not presented as approved AU courses;
-they only fill the curriculum's unspecified 12-credit free-elective area.
+The catalog in `scripts/academic-curriculum-fixture.mjs` contains 70 approved
+curriculum definitions. The former four `SYN-FE*` placeholders have been
+retired. For this synthetic fixture, four additional approved Computer Science
+Major Elective Group 2 courses satisfy the 12-credit free-elective portion:
+`ITX2004`, `ITX3003`, `ITX4502`, and `ITX4518`.
 
 Catalog totals are:
 
 | Catalog component           | Courses | Credits |
 | --------------------------- | ------: | ------: |
-| Supplied curriculum entries |      70 |     202 |
-| Synthetic free electives    |       4 |      12 |
-| Total catalog               |      74 |     214 |
+| Approved curriculum entries |      70 |     202 |
+| Synthetic free electives    |       0 |       0 |
+| Total catalog               |      70 |     202 |
 
-The catalog has 66 three-credit and eight two-credit rows. It has no invented
-zero-credit seminar rows.
+The catalog has 62 three-credit and eight two-credit rows. It has no `SYN-FE`
+course codes, `synthetic_free_elective` categories, or invented zero-credit
+seminar rows.
 
 Each completed student selects a 46-course, 132-credit path:
 
@@ -75,7 +75,7 @@ Each completed student selects a 46-course, 132-credit path:
 - Specialized core: 18 credits.
 - Major required: 39 credits.
 - Major electives: 33 credits.
-- Synthetic free-elective placeholders: 12 credits.
+- Approved Group 2 courses used for the free-elective portion: 12 credits.
 
 That path contains 40 three-credit and six two-credit courses. All fixtures
 model international students and therefore use `GE1411 Thai Language for
@@ -264,11 +264,13 @@ Supabase by themselves.
 
 These generators are historical, sequential fixture builders whose guarded
 preconditions intentionally describe the earlier single-program CS state.
+Their embedded 74-course assertions describe the superseded historical
+catalogue and are intentionally not the supported final-state contract.
 They must run before
 `20260809080520_expand_vmes_undergraduate_catalogue.sql`. The catalogue
-migration is the only supported forward step from the final 20-student CS
-fixture to the eight-row programme catalogue; the historical generators must
-not be rerun against that expanded state.
+migration is followed by the guarded synthetic free-elective correction; the
+historical generators must not be rerun against that expanded, corrected
+state.
 
 ## Read-only final-fixture validation
 
@@ -284,9 +286,10 @@ values, grades, or transcript contents. Execute it through an approved
 read-only database channel and require `all_checks_pass = true`.
 
 It validates the exact eight approved catalogue natural keys and credit totals,
-20 CS students and enrollments, 74 CS courses, 12 terms, 649 results, 10
+20 CS students and enrollments, 70 CS courses, 12 terms, 649 results, 10
 transcripts, 10 graduation records, zero enrollments/courses for the seven
-catalogue-only programs, and zero non-null academic personal emails.
+catalogue-only programs, zero non-null academic personal emails, no retired
+synthetic free-elective values, and ten results for each approved replacement.
 
 The university-email transaction derives each address from the database-owned
 student identity, updates only approved synthetic student email fields, and

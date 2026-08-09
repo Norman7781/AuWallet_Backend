@@ -54,7 +54,6 @@ const MAJOR_HARDWARE = 'major_hardware_architecture';
 const ELECTIVE_SED = 'major_elective_sed';
 const ELECTIVE_IDS = 'major_elective_ids';
 const ELECTIVE_GROUP_2 = 'major_elective_group_2';
-const FREE_ELECTIVE = 'synthetic_free_elective';
 
 // The official-looking curriculum rows below are transcribed only from the
 // curriculum text supplied for this fixture task. Range-based selected-topic
@@ -145,12 +144,6 @@ export const COURSES = [
   ['ITX4518', 'Blockchain and Digital Currencies', 3, ELECTIVE_GROUP_2],
   ['ITX4519', 'Internetworking Workshop', 3, ELECTIVE_GROUP_2],
   ['CSX4600', 'Selected Topics', 3, ELECTIVE_GROUP_2],
-  // No approved AU free-elective catalog was supplied. These four rows are
-  // explicitly synthetic placeholders used only to complete the 12 credits.
-  ['SYN-FE1001', 'Intercultural Communication', 3, FREE_ELECTIVE],
-  ['SYN-FE1002', 'Creative Problem Solving', 3, FREE_ELECTIVE],
-  ['SYN-FE1003', 'Personal Finance Fundamentals', 3, FREE_ELECTIVE],
-  ['SYN-FE1004', 'Community Innovation Workshop', 3, FREE_ELECTIVE],
 ];
 
 const COMMON_BLOCKS = [
@@ -179,7 +172,9 @@ const IDS_ADDITIONAL = [
   'CSX4208',
   'ITX4509',
 ];
-const FREE_ELECTIVES = ['SYN-FE1001', 'SYN-FE1002', 'SYN-FE1003', 'SYN-FE1004'];
+// For this synthetic fixture, these additional approved Major Elective Group 2
+// courses satisfy the 12-credit free-elective portion deterministically.
+const FREE_ELECTIVE_SELECTION = ['ITX2004', 'ITX3003', 'ITX4502', 'ITX4518'];
 
 export function concentrationFor(admissionNo) {
   if (!ALL_ADMISSIONS.includes(admissionNo)) {
@@ -196,7 +191,7 @@ export function curriculumBlocksFor(admissionNo) {
     ...COMMON_BLOCKS.map((block) => [...block]),
     ['CSX3007', ...selected],
     additional.slice(0, 5),
-    [additional[5], ...FREE_ELECTIVES],
+    [additional[5], ...FREE_ELECTIVE_SELECTION],
   ];
 }
 
@@ -246,14 +241,23 @@ export function mapLegacyTermGroups(admissionNo, groups) {
 
 function validateCurriculum() {
   const catalog = new Map(COURSES.map((course) => [course[0], course]));
-  if (COURSES.length !== 74 || catalog.size !== 74) {
+  if (COURSES.length !== 70 || catalog.size !== 70) {
     throw new Error('Curriculum catalog natural-key assertion failed');
   }
   const threeCredit = COURSES.filter((course) => course[2] === 3).length;
   const twoCredit = COURSES.filter((course) => course[2] === 2).length;
   const catalogCredits = COURSES.reduce((sum, course) => sum + course[2], 0);
-  if (threeCredit !== 66 || twoCredit !== 8 || catalogCredits !== 214) {
+  if (threeCredit !== 62 || twoCredit !== 8 || catalogCredits !== 202) {
     throw new Error('Curriculum catalog credit assertion failed');
+  }
+  if (
+    COURSES.some(
+      (course) =>
+        course[0].startsWith('SYN-FE') ||
+        course[3] === 'synthetic_free_elective',
+    )
+  ) {
+    throw new Error('Synthetic free-elective retirement assertion failed');
   }
   if (SED_ADMISSIONS.size !== 10 || IDS_ADMISSIONS.size !== 10) {
     throw new Error('Fixture concentration distribution assertion failed');
