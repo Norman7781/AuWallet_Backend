@@ -219,6 +219,22 @@ Normalization remains:
 7. Compute HMAC-SHA-256 using `PASSPORT_HMAC_SECRET`.
 8. Encode the digest as lowercase hexadecimal.
 
+The supported synthetic passport rotation reads exactly 20 ignored local
+variables named `SEED_PASSPORT_<admission number>`. Each test input must be
+exactly eight ASCII letters or digits. Generate the guarded, idempotent,
+protected artifact with:
+
+```bash
+npm run academic:rotate-passports:generate -- \
+  /tmp/au-wallet-academic.generated-passport-rotation.sql
+```
+
+The generated file contains only derived HMACs, is created with mode `0600`,
+and must be deleted immediately after execution. The plaintext synthetic test
+inputs remain only in ignored `.env.seed.local`; never commit, print in logs,
+or return them from an API. This eight-character rule is specific to this mock
+fixture and is not a universal real-passport validation rule.
+
 The curriculum correction contains no passport input, secret, or HMAC value.
 
 ## Historical generators

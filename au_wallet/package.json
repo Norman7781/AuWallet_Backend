@@ -26,6 +26,7 @@
     "historical:academic:correct-curriculum": "node scripts/generate-academic-curriculum-correction-sql.mjs",
     "historical:academic:remove-personal-email": "node scripts/generate-academic-personal-email-removal-sql.mjs",
     "historical:academic:set-university-emails": "node scripts/generate-academic-university-email-sql.mjs",
+    "academic:rotate-passports:generate": "node --env-file=.env.seed.local scripts/generate-academic-passport-rotation-sql.mjs",
     "academic:validate-final:generate": "node scripts/generate-academic-final-fixture-validation-sql.mjs"
   },
   "dependencies": {
