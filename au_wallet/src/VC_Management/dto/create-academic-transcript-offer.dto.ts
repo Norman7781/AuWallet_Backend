@@ -575,5 +575,6 @@ export class CreateAcademicTranscriptOfferDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AdditionalInformationItemDto)
-  additionalInformation!: AdditionalInformationItemDto[];
+  @IsOptional()
+  additionalInformation?: AdditionalInformationItemDto[];
 }

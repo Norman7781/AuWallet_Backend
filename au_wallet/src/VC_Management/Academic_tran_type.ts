@@ -208,7 +208,7 @@ export interface AcademicTranscriptClaims {
   educationalOrganization: EducationalOrganization;
   courseList: CourseList;
   academicSummary: AcademicSummary;
-  additionalInformation: AdditionalInformationItem[];
+  additionalInformation?: AdditionalInformationItem[];
 }
 
 export type PendingOffer = {

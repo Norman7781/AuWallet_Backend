@@ -170,7 +170,7 @@ export class VcService implements OnModuleInit {
       educationalOrganization: transcript.educationalOrganization,
       courseList: transcript.courseList,
       academicSummary: transcript.academicSummary,
-      additionalInformation: transcript.additionalInformation,
+      additionalInformation: transcript.additionalInformation ?? [],
     };
 
     // Each top-level section of the transcript is independently
