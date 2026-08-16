@@ -14,7 +14,14 @@ const ajv = new Ajv({
   // "additionalProperties", no "type" on every def) — relax strict mode
   // rather than editing the schema to satisfy ajv's stricter defaults.
   strict: false,
-} as any);
+  // The schema declares "$schema": "https://json-schema.org/draft-07/schema#"
+  // (https), but ajv's bundled draft-07 meta-schema is registered under the
+  // http:// URL. That mismatch makes ajv throw "no schema with key or ref"
+  // on addSchema() before it ever validates any data. We don't need ajv to
+  // meta-validate the schema itself (only to use it to validate claims),
+  // so this is disabled rather than editing the schema file.
+  validateSchema: false,
+});
 
 ajv.addSchema(academicTranscriptSchema as object, SCHEMA_ID);
 
