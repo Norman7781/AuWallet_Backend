@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "@context": { "$ref": "#/definitions/@context_type" },
+    "id": { "type": "string" },
+    "type": { "$ref": "#/definitions/@context_type" },
+    "issuer": { "$ref": "#/definitions/issuer_type" },
+    "issuanceDate": { "type": "string" },
+    "credentialSubject": { "$ref": "#/definitions/credentialSubject_type" },
+    "credentialStatus": { "$ref": "#/definitions/credentialStatus_type" },
+    "credentialSchema": { "$ref": "#/definitions/credentialSchema_type" },
+    "proof": { "$ref": "#/definitions/proof_type" }
+  },
+  "definitions": {
+    "@context_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "type": "string" }
+    },
+    "issuer_type": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "identifier_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": "string" }
+        },
+        "required": ["name", "value"]
+      }
+    },
+    "author_type": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "documentContext_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier_type" },
+        "schemaVersion": { "type": "string" },
+        "author": { "$ref": "#/definitions/author_type" }
+      }
+    },
+    "identifier2_type": {
+      "type": "object",
+      "properties": {
+        "propertyID": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    "inLanguage_type": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "alternateName": { "type": "string" }
+      }
+    },
+    "documentInformation_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier2_type" },
+        "name": { "type": "string" },
+        "additionalType": { "type": "string" },
+        "educationalUse": { "type": "string" },
+        "datePublished": { "type": "string" },
+        "inLanguage": { "$ref": "#/definitions/inLanguage_type" }
+      },
+      "required": [
+        "identifier",
+        "additionalType",
+        "datePublished",
+        "inLanguage"
+      ]
+    },
+    "identifier3_type": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    "residentCountryOrTerritory_type": {
+      "type": "object",
+      "properties": {
+        "addressCountry": { "type": "string" }
+      }
+    },
+    "programType_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "termCode": { "type": "string" },
+          "name": { "type": "string" },
+          "additionalType": { "type": "string" }
+        },
+        "required": ["name", "termCode"]
+      }
+    },
+    "programContext_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier3_type" },
+        "name": { "type": "string" },
+        "programType": { "$ref": "#/definitions/programType_type" },
+        "endDate": { "type": "string" }
+      }
+    },
+    "student_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier3_type" },
+        "honorificPrefix": { "type": "string" },
+        "givenName": { "type": "string" },
+        "familyName": { "type": "string" },
+        "gender": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "nationality": { "type": "string" },
+        "residentCountryOrTerritory": {
+          "$ref": "#/definitions/residentCountryOrTerritory_type"
+        },
+        "image": { "type": "string" },
+        "dateOfAdmission": { "type": "string" },
+        "facultyName": { "type": "string" },
+        "programContext": { "$ref": "#/definitions/programContext_type" }
+      },
+      "required": [
+        "identifier",
+        "honorificPrefix",
+        "givenName",
+        "familyName",
+        "facultyName"
+      ]
+    },
+    "address_type": {
+      "type": "object",
+      "properties": {
+        "streetAddress": { "type": "string" },
+        "addressLocality": { "type": "string" },
+        "addressRegion": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "addressCountry": { "type": "string" }
+      },
+      "required": [
+        "streetAddress",
+        "addressLocality",
+        "addressRegion",
+        "postalCode",
+        "addressCountry"
+      ]
+    },
+    "subOrganization_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier3_type" },
+        "name": { "type": "string" },
+        "address": { "$ref": "#/definitions/address_type" }
+      },
+      "required": ["identifier", "name", "address"]
+    },
+    "registrar_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier3_type" },
+        "jobTitle": { "type": "string" },
+        "honorificPrefix": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["identifier", "jobTitle", "honorificPrefix", "name", "email"]
+    },
+    "educationalOrganization_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier3_type" },
+        "name": { "type": "string" },
+        "schoolLevel": { "type": "string" },
+        "address": { "$ref": "#/definitions/address_type" },
+        "subOrganization": { "$ref": "#/definitions/subOrganization_type" },
+        "registrar": { "$ref": "#/definitions/registrar_type" }
+      },
+      "required": ["name"]
+    },
+    "CourseTransfer_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "courseCode": { "type": "string" },
+          "provider": { "$ref": "#/definitions/author_type" },
+          "name": { "type": "string" }
+        },
+        "required": ["provider", "courseCode", "name"]
+      }
+    },
+    "affiliation_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier_type" },
+        "name": { "type": "string" }
+      }
+    },
+    "provider_type": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "affiliation": { "$ref": "#/definitions/affiliation_type" }
+      },
+      "required": ["name", "affiliation"]
+    },
+    "org_provider_type": {
+      "type": "object",
+      "properties": {
+        "identifier": { "$ref": "#/definitions/identifier_type" },
+        "name": { "type": "string" }
+      },
+      "required": ["identifier", "name"]
+    },
+    "usageInfo_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "about": { "type": "string" },
+          "text": { "type": "string" }
+        },
+        "required": ["about", "text"]
+      }
+    },
+    "hasCourse_type": {
+      "type": "object",
+      "properties": {
+        "courseCode": { "type": "string" },
+        "provider": { "$ref": "#/definitions/provider_type" },
+        "usageInfo": { "$ref": "#/definitions/usageInfo_type" }
+      }
+    },
+    "itemListElement_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "courseCode": { "type": "string" },
+          "name": { "type": "string" },
+          "additionalType": { "type": "string" },
+          "description": { "type": "string" },
+          "numberOfCredits": { "type": "integer" },
+          "creditEarned": { "type": "integer" },
+          "grade": { "type": "integer" },
+          "gradeText": { "type": "string" },
+          "pointEarned": { "type": "integer" },
+          "programType": { "type": "string" },
+          "termsPerYear": { "type": "string" },
+          "timeToComplete": { "type": "string" },
+          "CourseTransfer": { "$ref": "#/definitions/CourseTransfer_type" },
+          "termDuration": { "type": "string" },
+          "provider": { "$ref": "#/definitions/org_provider_type" },
+          "CourseDescription": { "type": "string" },
+          "occupationalCategory": { "type": "string" },
+          "url": { "type": "string" },
+          "hasCourse": { "$ref": "#/definitions/hasCourse_type" }
+        },
+        "required": ["name", "courseCode", "numberOfCredits", "gradeText"]
+      }
+    },
+    "courseList_type": {
+      "type": "object",
+      "properties": {
+        "itemListElement": { "$ref": "#/definitions/itemListElement_type" }
+      }
+    },
+    "semesterSummary_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "educationTypeSystem": { "type": "string" },
+          "semesterName": { "type": "string" },
+          "semesterStatus": { "type": "string" },
+          "year": { "type": "string" },
+          "semesterCreditValue": { "type": "integer" },
+          "semesterCreditEarned": { "type": "integer" },
+          "semesterCreditCalculated": { "type": "integer" },
+          "semesterPointEarned": { "type": "integer" },
+          "semesterGPA": { "type": "integer" },
+          "semesterGPAX": { "type": "integer" },
+          "remark": { "type": "string" }
+        },
+        "required": ["semesterName"]
+      }
+    },
+    "academicSummary_type": {
+      "type": "object",
+      "properties": {
+        "semesterSummary": { "$ref": "#/definitions/semesterSummary_type" },
+        "totalCreditValue": { "type": "integer" },
+        "totalCreditEarned": { "type": "integer" },
+        "totalCreditCalculated": { "type": "integer" },
+        "totalPointEarned": { "type": "integer" },
+        "totalGPAX": { "type": "integer" },
+        "remark": { "type": "string" }
+      }
+    },
+    "InfomationNote_type": {
+      "type": "object",
+      "properties": {
+        "about": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    },
+    "additionalInformation_type": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "hons": { "type": "string" },
+          "thesisTitle": { "type": "string" },
+          "infomationNote": { "$ref": "#/definitions/InfomationNote_type" }
+        },
+        "required": ["thesisTitle", "hons"]
+      }
+    },
+    "credentialSubject_type": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "documentContext": { "$ref": "#/definitions/documentContext_type" },
+        "documentInformation": {
+          "$ref": "#/definitions/documentInformation_type"
+        },
+        "student": { "$ref": "#/definitions/student_type" },
+        "educationalOrganization": {
+          "$ref": "#/definitions/educationalOrganization_type"
+        },
+        "courseList": { "$ref": "#/definitions/courseList_type" },
+        "academicSummary": { "$ref": "#/definitions/academicSummary_type" },
+        "additionalInformation": {
+          "$ref": "#/definitions/additionalInformation_type"
+        }
+      },
+      "required": [
+        "documentContext",
+        "documentInformation",
+        "student",
+        "educationalOrganization",
+        "courseList",
+        "academicSummary",
+        "additionalInformation"
+      ]
+    },
+    "credentialStatus_type": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "statusPurpose": { "type": "string" },
+        "statusListIndex": { "type": "string" },
+        "statusListCredential": { "type": "string" }
+      },
+      "required": [
+        "type",
+        "statusPurpose",
+        "statusListIndex",
+        "statusListCredential"
+      ]
+    },
+    "credentialSchema_type": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["id", "type"]
+    },
+    "proof_type": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "created": { "type": "string" },
+        "proofPurpose": { "type": "string" },
+        "verificationMethod": { "type": "string" },
+        "jws": { "type": "string" }
+      },
+      "required": [
+        "type",
+        "created",
+        "proofPurpose",
+        "verificationMethod",
+        "jws"
+      ]
+    }
+  }
+}
