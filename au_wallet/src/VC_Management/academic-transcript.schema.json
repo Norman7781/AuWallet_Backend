@@ -300,8 +300,8 @@
           "semesterCreditEarned": { "type": "integer" },
           "semesterCreditCalculated": { "type": "integer" },
           "semesterPointEarned": { "type": "integer" },
-          "semesterGPA": { "type": "integer" },
-          "semesterGPAX": { "type": "integer" },
+          "semesterGPA": { "type": "number" },
+          "semesterGPAX": { "type": "number" },
           "remark": { "type": "string" }
         },
         "required": ["semesterName"]
@@ -315,7 +315,7 @@
         "totalCreditEarned": { "type": "integer" },
         "totalCreditCalculated": { "type": "integer" },
         "totalPointEarned": { "type": "integer" },
-        "totalGPAX": { "type": "integer" },
+        "totalGPAX": { "type": "number" },
         "remark": { "type": "string" }
       }
     },
