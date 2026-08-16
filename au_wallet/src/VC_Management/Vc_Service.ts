@@ -62,16 +62,31 @@ function isValidDomain(domain: string): boolean {
 //     /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 //   return domainRegex.test(domain);
 // }
-const ISSUER_HOST = process.env.VC_ISSUER_HOST;
-if (!ISSUER_HOST) {
-  throw new Error('VC_ISSUER_HOST environment variable is required');
+function resolveIssuerBaseUrl(): string {
+  const configuredBaseUrl = process.env.VC_ISSUER_BASE_URL?.trim();
+
+  if (configuredBaseUrl) {
+    const parsedUrl = new URL(configuredBaseUrl);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new Error('VC_ISSUER_BASE_URL must use http or https');
+    }
+    return parsedUrl.origin;
+  }
+
+  const configuredHost = process.env.VC_ISSUER_HOST?.trim();
+  if (configuredHost) {
+    if (!isValidDomain(configuredHost)) {
+      throw new Error(`Invalid domain: ${configuredHost}`);
+    }
+    return `https://${configuredHost}`;
+  }
+
+  const port = process.env.PORT?.trim() || '3000';
+  return `http://localhost:${port}`;
 }
-if (!isValidDomain(ISSUER_HOST)) {
-  throw new Error(`Invalid domain: ${ISSUER_HOST}`);
-}
-// const ISSUER_HOST = process.env.VC_ISSUER_HOST ?? 'au.edu';
-export const ISSUER_DID = `did:web:${ISSUER_HOST}:issuer:academic`;
-export const ISSUER_BASE_URL = `https://${ISSUER_HOST}`;
+
+export const ISSUER_BASE_URL = resolveIssuerBaseUrl();
+export const ISSUER_DID = `did:web:${new URL(ISSUER_BASE_URL).host}:issuer:academic`;
 export const ACADEMIC_TRANSCRIPT_VCT =
   'urn:vc+sd-jwt:th:education:academic-transcript';
 
@@ -129,7 +144,7 @@ export class VcService implements OnModuleInit {
   }
 
   async issueAcademicTranscript(
-    student: AcademicTranscriptClaims,
+    transcript: AcademicTranscriptClaims,
     holderPublicJwk: Record<string, any>,
   ): Promise<string> {
     const issuedAt = Math.floor(Date.now() / 1000);
@@ -143,23 +158,34 @@ export class VcService implements OnModuleInit {
       validFrom: new Date(issuedAt * 1000).toISOString(),
       validUntil: new Date(validUntil * 1000).toISOString(),
       vct: ACADEMIC_TRANSCRIPT_VCT,
-      issuing_institution: {
+      issuer: {
+        id: ISSUER_DID,
         name: 'Assumption University of Thailand',
-        country: 'TH',
       },
       cnf: { jwk: holderPublicJwk },
-      ...student,
+      // Nested sections mirror credentialSubject_type in the schema.
+      documentContext: transcript.documentContext,
+      documentInformation: transcript.documentInformation,
+      student: transcript.student,
+      educationalOrganization: transcript.educationalOrganization,
+      courseList: transcript.courseList,
+      academicSummary: transcript.academicSummary,
+      additionalInformation: transcript.additionalInformation,
     };
 
+    // Each top-level section of the transcript is independently
+    // selectively disclosable (holder can reveal e.g. just courseList
+    // without revealing academicSummary, etc). Fields are not disclosed
+    // individually within a section — the section is the disclosure unit.
     const disclosureFrame: any = {
       _sd: [
-        'name',
-        'student_id',
-        'degree_name',
-        'major',
-        'section',
-        'gpa',
-        'academic_standing',
+        'documentContext',
+        'documentInformation',
+        'student',
+        'educationalOrganization',
+        'courseList',
+        'academicSummary',
+        'additionalInformation',
       ],
     };
 

@@ -17,8 +17,8 @@ import {
   ACADEMIC_TRANSCRIPT_VCT,
 } from './Vc_Service';
 import { IssuanceRepository } from './Issuance_repo';
-import type { AcademicTranscriptClaims } from './Academic_tran_type';
 import { ProofOfPossessionService } from './proof-of-possession_service';
+import { CreateAcademicTranscriptOfferDto } from './dto/create-academic-transcript-offer.dto';
 
 function hashTxCode(txCode: string): string {
   return createHash('sha256').update(txCode).digest('hex');
@@ -45,14 +45,13 @@ export class VcIssuanceController {
           format: 'dc+sd-jwt',
           vct: ACADEMIC_TRANSCRIPT_VCT,
           claims: {
-            name: {},
-            student_id: {},
-            degree_name: {},
-            major: {},
-            section: {},
-            graduation_date: {},
-            gpa: {},
-            academic_standing: {},
+            documentContext: {},
+            documentInformation: {},
+            student: {},
+            educationalOrganization: {},
+            courseList: {},
+            academicSummary: {},
+            additionalInformation: {},
           },
         },
       },
@@ -62,7 +61,15 @@ export class VcIssuanceController {
   // Step 1: registrar/admin action — call this once a transcript record is final.
   // Returns the deep-link/QR payload to hand to the student.
   @Post('credentials/offers')
-  async createOffer(@Body() dto: AcademicTranscriptClaims) {
+  async createOffer(@Body() dto: CreateAcademicTranscriptOfferDto) {
+    return this.createAcademicTranscriptOffer(dto);
+  }
+
+  // Frontend-friendly route for the create button.
+  @Post('vc/academic-transcripts/create')
+  async createAcademicTranscriptOffer(
+    @Body() dto: CreateAcademicTranscriptOfferDto,
+  ) {
     const preAuthCode = randomUUID();
     const cNonce = randomUUID();
     const txCode = randomInt(100000, 999999).toString();

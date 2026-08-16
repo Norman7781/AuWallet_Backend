@@ -1,8 +1,3 @@
-/**
- * @sd-jwt/sd-jwt-vc expects the `signer` callback to return a raw JOSE-format
- * ECDSA signature (r || s, base64url) — not a DER signature, not a full JWT.
- * Node's crypto.sign() with ES256 produces DER by default, so this converts.
- */
 export function derToJose(der: Buffer, size = 32): string {
   let offset = 2; // skip SEQUENCE tag + length byte
   function readInt(): Buffer {

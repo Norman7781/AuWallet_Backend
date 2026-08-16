@@ -57,6 +57,16 @@ login audit table.
 - `PATCH /holder-accounts/:holderAccountId/status` (`issuer_staff` or `admin`)
 - `PATCH /roles/:authUserId` (`admin`)
 
+## VC issuance routes
+
+- `POST /vc/academic-transcripts/create` creates an academic transcript VC
+  offer for the frontend flow.
+- `POST /credentials/offers` keeps the standard issuer-style alias for the same
+  create flow.
+- `POST /token` exchanges the pre-authorized code for an access token.
+- `POST /credentials/issue` redeems the access token and proof-of-possession
+  JWT for the credential.
+
 Protected endpoints require `Authorization: Bearer <access-token>`.
 
 ## Compile and run the project

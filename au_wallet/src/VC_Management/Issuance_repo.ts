@@ -1,36 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import { AcademicTranscriptClaims } from './Academic_tran_type';
-import { supabase } from '../supabase-client';
-import { createHash } from 'node:crypto';
+import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
 export class IssuanceRepository {
+  constructor(private readonly supabaseService: SupabaseService) {}
+
+  private get supabase() {
+    return this.supabaseService.client as any;
+  }
+
   async savePendingOffer(
     claims: AcademicTranscriptClaims,
     code: string,
     cNonce: string,
     txCodeHash: string,
   ) {
+    const studentId = claims.student?.identifier?.value;
+    if (!studentId) {
+      throw new Error('claims.student.identifier.value is required');
+    }
+
     // Duplicate-issuance guard: block a second offer for the same
     // student_id if one has already been issued.
-    const { data: existing } = await supabase
+    const { data: existing } = await this.supabase
       .from('vc_issuance_log')
       .select('status')
-      .eq('student_id', claims.student_id)
+      .eq('student_id', studentId)
       .eq('status', 'issued')
       .maybeSingle();
 
     if (existing) {
       throw new Error(
-        `Academic transcript already issued for student ${claims.student_id}`,
+        `Academic transcript already issued for student ${studentId}`,
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .insert({
         code,
-        student_id: claims.student_id,
+        student_id: studentId,
         claims,
         status: 'pending',
         c_nonce: cNonce,
@@ -44,7 +54,7 @@ export class IssuanceRepository {
   }
 
   async attachAccessToken(code: string, accessToken: string, cNonce: string) {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .update({ access_token: accessToken, c_nonce: cNonce })
       .eq('code', code)
@@ -56,7 +66,7 @@ export class IssuanceRepository {
   }
 
   async findPendingByCode(code: string) {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .select('*')
       .eq('code', code)
@@ -67,7 +77,7 @@ export class IssuanceRepository {
   }
 
   async findByAccessToken(token: string) {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .select('*')
       .eq('access_token', token)
@@ -78,7 +88,7 @@ export class IssuanceRepository {
   }
 
   async markIssued(code: string) {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .update({ status: 'issued', issued_at: new Date().toISOString() })
       .eq('code', code)
@@ -90,7 +100,7 @@ export class IssuanceRepository {
   }
 
   async markRevoked(code: string) {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .update({ status: 'revoked' })
       .eq('code', code)
@@ -103,7 +113,7 @@ export class IssuanceRepository {
 
   /** Audit: which students received which credentials */
   async listIssued() {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .select('*')
       .eq('status', 'issued');
