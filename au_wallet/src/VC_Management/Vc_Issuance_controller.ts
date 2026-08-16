@@ -18,6 +18,12 @@ import {
 } from './Vc_Service';
 import { IssuanceRepository } from './Issuance_repo';
 import { ProofOfPossessionService } from './proof-of-possession_service';
+import { StudentAcademicService } from './student-academic_service';
+import { buildAcademicTranscriptClaims } from './academic-transcript_builder';
+import {
+  validateAcademicTranscriptClaims,
+  SchemaValidationError,
+} from './Schema_Validator';
 import { CreateAcademicTranscriptOfferDto } from './dto/create-academic-transcript-offer.dto';
 
 function hashTxCode(txCode: string): string {
@@ -30,6 +36,7 @@ export class VcIssuanceController {
     private readonly vcService: VcService,
     private readonly issuanceRepo: IssuanceRepository,
     private readonly popService: ProofOfPossessionService,
+    private readonly studentAcademicService: StudentAcademicService,
   ) {}
 
   // OID4VCI issuer metadata — wallet fetches this first to discover
@@ -70,10 +77,32 @@ export class VcIssuanceController {
   async createAcademicTranscriptOffer(
     @Body() dto: CreateAcademicTranscriptOfferDto,
   ) {
+    const record = await this.studentAcademicService.getFullAcademicRecord(
+      dto.studentNumber,
+    );
+    const claims = buildAcademicTranscriptClaims(record);
+
+    try {
+      validateAcademicTranscriptClaims(claims);
+    } catch (err) {
+      if (err instanceof SchemaValidationError) {
+        throw new BadRequestException({
+          message: 'Built transcript claims failed schema validation',
+          errors: err.errors,
+        });
+      }
+      throw err;
+    }
+
     const preAuthCode = randomUUID();
     const cNonce = randomUUID();
     const txCode = randomInt(100000, 999999).toString();
-    await this.issuanceRepo.savePendingOffer(dto, preAuthCode, cNonce, txCode);
+    await this.issuanceRepo.savePendingOffer(
+      claims,
+      preAuthCode,
+      cNonce,
+      txCode,
+    );
 
     const offer = {
       credential_issuer: ISSUER_DID,

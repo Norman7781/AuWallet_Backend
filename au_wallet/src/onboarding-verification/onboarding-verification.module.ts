@@ -71,6 +71,7 @@ import { IssuerAcademicService } from './issuer-academic/issuer-academic.service
     IssuerConnectionService,
     PassportHmacService,
     StudentMatchingService,
+    IssuerAcademicRepository,
   ],
 })
 export class OnboardingVerificationModule {}
