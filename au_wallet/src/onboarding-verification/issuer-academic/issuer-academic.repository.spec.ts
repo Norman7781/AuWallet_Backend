@@ -14,6 +14,8 @@ function createQueryBuilder(response: QueryResponse) {
     eq: jest.fn(),
     not: jest.fn(),
     in: jest.fn(),
+    gte: jest.fn(),
+    lt: jest.fn(),
     or: jest.fn(),
     order: jest.fn(),
     range: jest.fn(),
@@ -27,6 +29,8 @@ function createQueryBuilder(response: QueryResponse) {
     builder.eq,
     builder.not,
     builder.in,
+    builder.gte,
+    builder.lt,
     builder.or,
     builder.order,
     builder.range,
@@ -262,6 +266,74 @@ describe('IssuerAcademicRepository', () => {
       { studentNumber: '0000000', status: 'not_verified' },
     ]);
     expect(from).toHaveBeenCalledTimes(4);
+  });
+
+  it('loads one graduation year with one bounded date-range query', async () => {
+    const { repository, queries, from } = createRepository({
+      program: { data: program, error: null },
+      graduation_record: { data: [graduation], error: null },
+      student_program_enrollment: { data: [enrollment], error: null },
+      student: { data: [student], error: null },
+      issuer_provider: {
+        data: { issuer_provider_id: 31 },
+        error: null,
+      },
+      holder_issuer_connection: {
+        data: [{ verified_enrollment_id: 11 }],
+        error: null,
+      },
+    });
+
+    await expect(
+      repository.listGraduatingStudents({
+        graduationYear: 2025,
+        facultyCode: 'VMES',
+        programCode: 'SYN-VMES-CS',
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        studentNumber: '6499002',
+        graduationDate: '2025-05-24',
+        walletEligibility: 'verified',
+      }),
+    ]);
+
+    expect(queries.graduation_record[0].gte).toHaveBeenCalledWith(
+      'graduation_date',
+      '2025-01-01',
+    );
+    expect(queries.graduation_record[0].lt).toHaveBeenCalledWith(
+      'graduation_date',
+      '2026-01-01',
+    );
+    expect(queries.graduation_record[0].eq).not.toHaveBeenCalledWith(
+      'graduation_date',
+      expect.anything(),
+    );
+    expect(queries.graduation_record[0].limit).toHaveBeenCalledWith(100);
+    expect(from).toHaveBeenCalledTimes(6);
+  });
+
+  it('preserves the exact graduation-date query for existing callers', async () => {
+    const { repository, queries } = createRepository({
+      program: { data: program, error: null },
+      graduation_record: { data: [], error: null },
+    });
+
+    await expect(
+      repository.listGraduatingStudents({
+        graduationDate: '2025-05-24',
+        facultyCode: 'VMES',
+        programCode: 'SYN-VMES-CS',
+      }),
+    ).resolves.toEqual([]);
+
+    expect(queries.graduation_record[0].eq).toHaveBeenCalledWith(
+      'graduation_date',
+      '2025-05-24',
+    );
+    expect(queries.graduation_record[0].gte).not.toHaveBeenCalled();
+    expect(queries.graduation_record[0].lt).not.toHaveBeenCalled();
   });
 
   it('builds a read-only academic preview with term GPA and credits', async () => {

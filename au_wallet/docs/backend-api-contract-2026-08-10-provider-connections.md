@@ -220,10 +220,23 @@ signature. Transfer results without an academic term appear in
 
 ### `GET /issuer/graduating-students`
 
-Required query fields are `graduationDate=YYYY-MM-DD`, `facultyCode`, and
-`programCode`. `programCode` is used instead of a separate `majorCode`. The
-response uses the same safe student-summary fields as the student list and is
-limited to 100 matches.
+Required query fields are `facultyCode`, `programCode`, and exactly one
+graduation-period filter:
+
+- `graduationYear=YYYY` loads the complete calendar year in one request. This is
+  the preferred batch-selection contract.
+- `graduationDate=YYYY-MM-DD` remains available for an exact-date search.
+
+Do not send both graduation filters. `programCode` is used instead of a separate
+`majorCode`. The response uses the same safe student-summary fields as the
+student list, includes each student's `walletEligibility`, and is limited to 100
+matches.
+
+Example batch request:
+
+```http
+GET /issuer/graduating-students?graduationYear=2025&facultyCode=VMES&programCode=SYN-VMES-CS
+```
 
 ```json
 {

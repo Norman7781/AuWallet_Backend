@@ -588,6 +588,11 @@ describe('AU Wallet backend API (e2e)', () => {
       .expect(200);
     const graduating = await request(app.getHttpServer())
       .get(
+        '/issuer/graduating-students?graduationYear=2025&facultyCode=VMES&programCode=SYN-VMES-CS',
+      )
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(
         '/issuer/graduating-students?graduationDate=2025-05-24&facultyCode=VMES&programCode=SYN-VMES-CS',
       )
       .expect(200);
@@ -658,6 +663,16 @@ describe('AU Wallet backend API (e2e)', () => {
     await request(app.getHttpServer())
       .get(
         '/issuer/graduating-students?graduationDate=invalid&facultyCode=*&programCode=Computer%20Science',
+      )
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(
+        '/issuer/graduating-students?graduationDate=2025-05-24&graduationYear=2025&facultyCode=VMES&programCode=SYN-VMES-CS',
+      )
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(
+        '/issuer/graduating-students?facultyCode=VMES&programCode=SYN-VMES-CS',
       )
       .expect(400);
     await request(app.getHttpServer())

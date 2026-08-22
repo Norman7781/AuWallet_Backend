@@ -39,20 +39,39 @@ describe('issuer academic DTOs', () => {
     expect(await validate(dto)).not.toHaveLength(0);
   });
 
-  it('requires exact graduation filters', async () => {
-    const valid = plainToInstance(ListGraduatingStudentsDto, {
+  it('accepts exactly one constrained graduation date or year filter', async () => {
+    const exactDate = plainToInstance(ListGraduatingStudentsDto, {
       graduationDate: '2025-05-24',
       facultyCode: 'VMES',
       programCode: 'SYN-VMES-CS',
     });
-    const invalid = plainToInstance(ListGraduatingStudentsDto, {
+    const wholeYear = plainToInstance(ListGraduatingStudentsDto, {
+      graduationYear: '2025',
+      facultyCode: 'VMES',
+      programCode: 'SYN-VMES-CS',
+    });
+    const invalidDate = plainToInstance(ListGraduatingStudentsDto, {
       graduationDate: 'May 24',
       facultyCode: '*',
       programCode: 'Computer Science',
     });
+    const missingPeriod = plainToInstance(ListGraduatingStudentsDto, {
+      facultyCode: 'VMES',
+      programCode: 'SYN-VMES-CS',
+    });
+    const conflictingPeriods = plainToInstance(ListGraduatingStudentsDto, {
+      graduationDate: '2025-05-24',
+      graduationYear: '2025',
+      facultyCode: 'VMES',
+      programCode: 'SYN-VMES-CS',
+    });
 
-    await expect(validate(valid)).resolves.toHaveLength(0);
-    expect(await validate(invalid)).not.toHaveLength(0);
+    await expect(validate(exactDate)).resolves.toHaveLength(0);
+    await expect(validate(wholeYear)).resolves.toHaveLength(0);
+    expect(wholeYear.graduationYear).toBe(2025);
+    expect(await validate(invalidDate)).not.toHaveLength(0);
+    expect(await validate(missingPeriod)).not.toHaveLength(0);
+    expect(await validate(conflictingPeriods)).not.toHaveLength(0);
   });
 
   it('bounds wallet resolution and validates every student number', async () => {

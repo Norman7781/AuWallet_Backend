@@ -93,7 +93,7 @@ describe('IssuerAcademicService', () => {
 
     await expect(
       service.listGraduatingStudents({
-        graduationDate: '2025-05-24',
+        graduationYear: 2025,
         facultyCode: 'VMES',
         programCode: 'SYN-VMES-CS',
       }),
@@ -101,6 +101,11 @@ describe('IssuerAcademicService', () => {
       data: { students: [student] },
       message: 'Graduating students loaded.',
       meta: { total: 1 },
+    });
+    expect(repository.listGraduatingStudents).toHaveBeenCalledWith({
+      graduationYear: 2025,
+      facultyCode: 'VMES',
+      programCode: 'SYN-VMES-CS',
     });
     await expect(
       service.resolveWalletEligibility(['6499002']),

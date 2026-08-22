@@ -253,7 +253,8 @@ export class IssuerAcademicRepository {
   }
 
   async listGraduatingStudents(input: {
-    graduationDate: string;
+    graduationDate?: string;
+    graduationYear?: number;
     facultyCode: string;
     programCode: string;
   }): Promise<IssuerStudentSummary[]> {
@@ -271,15 +272,21 @@ export class IssuerAcademicRepository {
     if (programError) this.fail();
     if (!program) return [];
 
-    const { data: graduations, error: graduationError } = await this.supabase
+    const graduationQuery = this.supabase
       .schema('academic')
       .from('graduation_record')
       .select(
         'enrollment_id, graduation_date, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
-      )
-      .eq('graduation_date', input.graduationDate)
-      .limit(100)
-      .overrideTypes<GraduationRow[], { merge: false }>();
+      );
+    const filteredGraduationQuery = input.graduationDate
+      ? graduationQuery.eq('graduation_date', input.graduationDate)
+      : graduationQuery
+          .gte('graduation_date', `${input.graduationYear!}-01-01`)
+          .lt('graduation_date', `${input.graduationYear! + 1}-01-01`);
+    const { data: graduations, error: graduationError } =
+      await filteredGraduationQuery
+        .limit(100)
+        .overrideTypes<GraduationRow[], { merge: false }>();
 
     if (graduationError) this.fail();
 
