@@ -127,6 +127,8 @@ describe('AuthService', () => {
     expect(createPending).toHaveBeenCalledWith(
       'auth-user-id',
       'student@example.com',
+      'Student',
+      'Example',
     );
     expect(signUp).toHaveBeenCalledWith({
       email: 'student@example.com',

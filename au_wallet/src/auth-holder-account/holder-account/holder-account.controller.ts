@@ -25,7 +25,7 @@ export class HolderAccountController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@CurrentUser() user: AuthenticatedUser) {
-    const holder = await this.holderAccountService.findByAuthUserId(
+    const holder = await this.holderAccountService.getProfileByAuthUserId(
       user.supabaseAuthId,
     );
 

@@ -14,7 +14,25 @@ type HolderAccountRow = Database['wallet']['Tables']['holder_account']['Row'];
 type EmailColumn = 'personal_email' | 'university_email';
 
 const HOLDER_ACCOUNT_COLUMNS =
-  'holder_account_id, auth_user_id, university_email, personal_email, account_status, confirmed_at, created_at, updated_at';
+  'holder_account_id, auth_user_id, first_name, last_name, university_email, personal_email, account_status, confirmed_at, created_at, updated_at';
+
+const ASSUMPTION_UNIVERSITY_ISSUER_CODE = 'assumption-university';
+
+interface IssuerProviderIdRow {
+  issuer_provider_id: number;
+}
+
+interface VerifiedEnrollmentRow {
+  verified_enrollment_id: number;
+}
+
+interface EnrollmentRow {
+  student_id: number;
+}
+
+interface AcademicStudentNumberRow {
+  admission_no: string;
+}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -24,6 +42,9 @@ function toHolderAccount(row: HolderAccountRow): HolderAccount {
   return {
     holderAccountId: row.holder_account_id,
     authUserId: row.auth_user_id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    studentId: null,
     universityEmail: row.university_email,
     personalEmail: row.personal_email,
     accountStatus: row.account_status as AccountStatus,
@@ -59,11 +80,15 @@ export class HolderAccountService {
   async createPending(
     authUserId: string,
     personalEmail: string,
+    firstName: string,
+    lastName: string,
   ): Promise<HolderAccount> {
     const normalizedEmail = normalizeEmail(personalEmail);
+    const normalizedFirstName = firstName.trim();
+    const normalizedLastName = lastName.trim();
 
-    if (!normalizedEmail) {
-      throw new ConflictException('A personal email is required');
+    if (!normalizedEmail || !normalizedFirstName || !normalizedLastName) {
+      throw new ConflictException('A personal email and name are required');
     }
 
     const { data, error } = await this.supabase
@@ -72,6 +97,8 @@ export class HolderAccountService {
       .insert({
         auth_user_id: authUserId,
         personal_email: normalizedEmail,
+        first_name: normalizedFirstName,
+        last_name: normalizedLastName,
         account_status: AccountStatus.PENDING,
       })
       .select(HOLDER_ACCOUNT_COLUMNS)
@@ -111,6 +138,21 @@ export class HolderAccountService {
     }
 
     return data ? toHolderAccount(data) : null;
+  }
+
+  async getProfileByAuthUserId(
+    authUserId: string,
+  ): Promise<HolderAccount | null> {
+    const holder = await this.findByAuthUserId(authUserId);
+
+    if (!holder) {
+      return null;
+    }
+
+    return {
+      ...holder,
+      studentId: await this.findVerifiedAuStudentId(holder.holderAccountId),
+    };
   }
 
   async updateUniversityEmail(
@@ -241,6 +283,83 @@ export class HolderAccountService {
     }
 
     return holder;
+  }
+
+  private async findVerifiedAuStudentId(
+    holderAccountId: number,
+  ): Promise<string | null> {
+    const { data: provider, error: providerError } = await this.supabase
+      .schema('wallet')
+      .from('issuer_provider')
+      .select('issuer_provider_id')
+      .eq('issuer_code', ASSUMPTION_UNIVERSITY_ISSUER_CODE)
+      .maybeSingle()
+      .overrideTypes<IssuerProviderIdRow | null, { merge: false }>();
+
+    if (providerError) {
+      throw new InternalServerErrorException(
+        'Unable to load the holder account',
+      );
+    }
+
+    if (!provider) {
+      return null;
+    }
+
+    const { data: connection, error: connectionError } = await this.supabase
+      .schema('wallet')
+      .from('holder_issuer_connection')
+      .select('verified_enrollment_id')
+      .eq('holder_account_id', holderAccountId)
+      .eq('issuer_provider_id', provider.issuer_provider_id)
+      .eq('connection_status', 'verified')
+      .not('verified_enrollment_id', 'is', null)
+      .maybeSingle()
+      .overrideTypes<VerifiedEnrollmentRow | null, { merge: false }>();
+
+    if (connectionError) {
+      throw new InternalServerErrorException(
+        'Unable to load the holder account',
+      );
+    }
+
+    if (!connection) {
+      return null;
+    }
+
+    const { data: enrollment, error: enrollmentError } = await this.supabase
+      .schema('academic')
+      .from('student_program_enrollment')
+      .select('student_id')
+      .eq('enrollment_id', connection.verified_enrollment_id)
+      .maybeSingle()
+      .overrideTypes<EnrollmentRow | null, { merge: false }>();
+
+    if (enrollmentError) {
+      throw new InternalServerErrorException(
+        'Unable to load the holder account',
+      );
+    }
+
+    if (!enrollment) {
+      return null;
+    }
+
+    const { data: student, error: studentError } = await this.supabase
+      .schema('academic')
+      .from('student')
+      .select('admission_no')
+      .eq('student_id', enrollment.student_id)
+      .maybeSingle()
+      .overrideTypes<AcademicStudentNumberRow | null, { merge: false }>();
+
+    if (studentError) {
+      throw new InternalServerErrorException(
+        'Unable to load the holder account',
+      );
+    }
+
+    return student?.admission_no ?? null;
   }
 
   private async findByEmailColumn(

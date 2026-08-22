@@ -4,6 +4,69 @@ import { AccountStatus } from '../common/enums/account-status.enum';
 import { HolderAccountService } from './holder-account.service';
 
 describe('HolderAccountService', () => {
+  it('returns an AU student number only through the holder verified connection', async () => {
+    const holderQuery = createQuery({
+      data: {
+        holder_account_id: 12,
+        auth_user_id: 'auth-user-id',
+        first_name: 'Dexx',
+        last_name: 'Robinson',
+        university_email: null,
+        personal_email: 'student@example.test',
+        account_status: 'active',
+        confirmed_at: '2026-08-09T00:30:00.000Z',
+        created_at: '2026-08-09T00:00:00.000Z',
+        updated_at: '2026-08-09T00:30:00.000Z',
+      },
+      error: null,
+    });
+    const providerQuery = createProfileQuery({
+      data: { issuer_provider_id: 3 },
+      error: null,
+    });
+    const connectionQuery = createProfileQuery({
+      data: { verified_enrollment_id: 22 },
+      error: null,
+    });
+    const enrollmentQuery = createProfileQuery({
+      data: { student_id: 44 },
+      error: null,
+    });
+    const studentQuery = createProfileQuery({
+      data: { admission_no: '6540122' },
+      error: null,
+    });
+    const from = jest
+      .fn()
+      .mockReturnValueOnce(holderQuery)
+      .mockReturnValueOnce(providerQuery)
+      .mockReturnValueOnce(connectionQuery)
+      .mockReturnValueOnce(enrollmentQuery)
+      .mockReturnValueOnce(studentQuery);
+    const service = new HolderAccountService({
+      schema: jest.fn().mockReturnValue({ from }),
+    } as unknown as SupabaseService);
+
+    await expect(
+      service.getProfileByAuthUserId('auth-user-id'),
+    ).resolves.toMatchObject({
+      holderAccountId: 12,
+      authUserId: 'auth-user-id',
+      firstName: 'Dexx',
+      lastName: 'Robinson',
+      studentId: '6540122',
+      personalEmail: 'student@example.test',
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    expect(holderQuery.eq).toHaveBeenCalledWith('auth_user_id', 'auth-user-id');
+    expect(connectionQuery.eq).toHaveBeenCalledWith('holder_account_id', 12);
+    expect(connectionQuery.eq).toHaveBeenCalledWith(
+      'connection_status',
+      'verified',
+    );
+    expect(studentQuery.eq).toHaveBeenCalledWith('student_id', 44);
+  });
+
   it('rejects direct activation before issuing a database query', async () => {
     const schema = jest.fn();
     const service = new HolderAccountService({
@@ -101,6 +164,22 @@ function createQuery(result: unknown) {
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.update.mockReturnValue(query);
+
+  return query;
+}
+
+function createProfileQuery(result: unknown) {
+  const query = {
+    select: jest.fn(),
+    eq: jest.fn(),
+    not: jest.fn(),
+    maybeSingle: jest.fn(),
+    overrideTypes: jest.fn().mockResolvedValue(result),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.not.mockReturnValue(query);
+  query.maybeSingle.mockReturnValue(query);
 
   return query;
 }

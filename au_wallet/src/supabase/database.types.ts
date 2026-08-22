@@ -12,6 +12,8 @@ type HolderAccountTable = {
   Row: {
     holder_account_id: number;
     auth_user_id: string;
+    first_name: string;
+    last_name: string;
     university_email: string | null;
     personal_email: string;
     account_status: WalletAccountStatus;
@@ -22,6 +24,8 @@ type HolderAccountTable = {
   Insert: {
     holder_account_id?: number;
     auth_user_id: string;
+    first_name: string;
+    last_name: string;
     university_email?: string | null;
     personal_email: string;
     account_status?: WalletAccountStatus;
@@ -32,6 +36,8 @@ type HolderAccountTable = {
   Update: {
     holder_account_id?: number;
     auth_user_id?: string;
+    first_name?: string;
+    last_name?: string;
     university_email?: string | null;
     personal_email?: string;
     account_status?: WalletAccountStatus;

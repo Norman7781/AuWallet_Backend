@@ -101,6 +101,8 @@ export class AuthService {
       holderAccount = await this.holderAccountService.createPending(
         data.user.id,
         email,
+        dto.firstName,
+        dto.lastName,
       );
     } catch (error) {
       await adminClient.auth.admin.deleteUser(data.user.id);

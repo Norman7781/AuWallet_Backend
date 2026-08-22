@@ -8,6 +8,10 @@ import { AccountStatus } from '../common/enums/account-status.enum';
 export interface HolderAccount {
   holderAccountId: number;
   authUserId: string;
+  firstName: string;
+  lastName: string;
+  /** AU admission number derived only from a verified AU connection. */
+  studentId: string | null;
   universityEmail: string | null;
   personalEmail: string;
   accountStatus: AccountStatus;
