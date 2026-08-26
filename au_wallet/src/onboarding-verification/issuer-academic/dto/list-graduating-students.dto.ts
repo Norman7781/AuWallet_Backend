@@ -12,20 +12,27 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
-@ValidatorConstraint({ name: 'exactlyOneGraduationPeriod', async: false })
-class ExactlyOneGraduationPeriodConstraint implements ValidatorConstraintInterface {
+@ValidatorConstraint({ name: 'validGraduationPeriod', async: false })
+class ValidGraduationPeriodConstraint implements ValidatorConstraintInterface {
   validate(_value: unknown, arguments_: ValidationArguments): boolean {
     const query = arguments_.object as ListGraduatingStudentsDto;
     const hasDate =
       query.graduationDate !== undefined && query.graduationDate !== null;
     const hasYear =
       query.graduationYear !== undefined && query.graduationYear !== null;
+    const hasMonth =
+      query.graduationMonth !== undefined && query.graduationMonth !== null;
 
-    return hasDate !== hasYear;
+    if (hasDate) return !hasYear && !hasMonth;
+    if (!hasYear) return false;
+
+    // Year-only remains a temporary compatibility path. New issuer UI sends
+    // both year and month to search one academic graduation period.
+    return true;
   }
 
   defaultMessage(): string {
-    return 'Provide exactly one of graduationDate or graduationYear.';
+    return 'Provide graduationDate, or graduationYear with an optional graduationMonth.';
   }
 }
 
@@ -41,7 +48,14 @@ export class ListGraduatingStudentsDto {
   @Max(2200)
   graduationYear?: number;
 
-  @Validate(ExactlyOneGraduationPeriodConstraint)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  graduationMonth?: number;
+
+  @Validate(ValidGraduationPeriodConstraint)
   @Matches(/^[A-Z0-9-]{2,32}$/)
   facultyCode!: string;
 

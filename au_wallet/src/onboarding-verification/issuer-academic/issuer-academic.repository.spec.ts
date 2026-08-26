@@ -100,6 +100,7 @@ const program = {
 const graduation = {
   enrollment_id: 11,
   graduation_date: '2025-05-24',
+  graduation_class: 52,
   total_credits_completed: '132',
   total_credits_transferred: '0',
   total_credits_earned: '132',
@@ -219,6 +220,7 @@ describe('IssuerAcademicRepository', () => {
           studentNumber: '6499002',
           fullName: 'Mr Kawin Rattanakul',
           programCode: 'SYN-VMES-CS',
+          graduationClass: 52,
           walletEligibility: 'verified',
         }),
       ],
@@ -312,6 +314,46 @@ describe('IssuerAcademicRepository', () => {
     );
     expect(queries.graduation_record[0].limit).toHaveBeenCalledWith(100);
     expect(from).toHaveBeenCalledTimes(6);
+  });
+
+  it('loads one graduation month with one bounded date-range query', async () => {
+    const { repository, queries } = createRepository({
+      program: { data: program, error: null },
+      graduation_record: { data: [graduation], error: null },
+      student_program_enrollment: { data: [enrollment], error: null },
+      student: { data: [student], error: null },
+      issuer_provider: {
+        data: { issuer_provider_id: 31 },
+        error: null,
+      },
+      holder_issuer_connection: {
+        data: [{ verified_enrollment_id: 11 }],
+        error: null,
+      },
+    });
+
+    await expect(
+      repository.listGraduatingStudents({
+        graduationYear: 2025,
+        graduationMonth: 5,
+        facultyCode: 'VMES',
+        programCode: 'SYN-VMES-CS',
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        graduationDate: '2025-05-24',
+        graduationClass: 52,
+      }),
+    ]);
+
+    expect(queries.graduation_record[0].gte).toHaveBeenCalledWith(
+      'graduation_date',
+      '2025-05-01',
+    );
+    expect(queries.graduation_record[0].lt).toHaveBeenCalledWith(
+      'graduation_date',
+      '2025-06-01',
+    );
   });
 
   it('preserves the exact graduation-date query for existing callers', async () => {

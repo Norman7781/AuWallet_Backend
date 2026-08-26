@@ -127,6 +127,7 @@ major. The frontend keeps `programCode` as the dropdown value and displays
         "majorConcentration": null,
         "academicStatus": "graduated",
         "graduationDate": "2025-05-24",
+        "graduationClass": 52,
         "walletEligibility": "not_verified"
       }
     ]
@@ -160,6 +161,7 @@ students without a graduation record have null graduation/GPA summary fields.
     "majorConcentration": null,
     "academicStatus": "graduated",
     "graduationDate": "2025-05-24",
+    "graduationClass": 52,
     "walletEligibility": "not_verified",
     "admissionDate": "2021-06-07",
     "requiredCredits": 132,
@@ -220,22 +222,25 @@ signature. Transfer results without an academic term appear in
 
 ### `GET /issuer/graduating-students`
 
-Required query fields are `facultyCode`, `programCode`, and exactly one
+Required query fields are `facultyCode`, `programCode`, and a
 graduation-period filter:
 
-- `graduationYear=YYYY` loads the complete calendar year in one request. This is
-  the preferred batch-selection contract.
+- `graduationYear=YYYY&graduationMonth=MM` loads one month-year period in one
+  request. This is the preferred batch-selection contract.
+- `graduationYear=YYYY` remains a temporary compatibility path for a whole-year
+  search.
 - `graduationDate=YYYY-MM-DD` remains available for an exact-date search.
 
-Do not send both graduation filters. `programCode` is used instead of a separate
-`majorCode`. The response uses the same safe student-summary fields as the
-student list, includes each student's `walletEligibility`, and is limited to 100
-matches.
+Do not combine `graduationDate` with `graduationYear` or `graduationMonth`.
+`programCode` is used instead of a separate `majorCode`. The response uses the
+same safe student-summary fields as the student list, including the full
+`graduationDate`, `graduationClass`, and each student's `walletEligibility`; it
+is limited to 100 matches.
 
 Example batch request:
 
 ```http
-GET /issuer/graduating-students?graduationYear=2025&facultyCode=VMES&programCode=SYN-VMES-CS
+GET /issuer/graduating-students?graduationYear=2025&graduationMonth=5&facultyCode=VMES&programCode=SYN-VMES-CS
 ```
 
 ```json

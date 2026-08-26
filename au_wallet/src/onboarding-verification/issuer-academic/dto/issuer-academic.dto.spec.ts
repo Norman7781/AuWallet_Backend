@@ -39,7 +39,7 @@ describe('issuer academic DTOs', () => {
     expect(await validate(dto)).not.toHaveLength(0);
   });
 
-  it('accepts exactly one constrained graduation date or year filter', async () => {
+  it('accepts exact-date compatibility and a constrained month-year filter', async () => {
     const exactDate = plainToInstance(ListGraduatingStudentsDto, {
       graduationDate: '2025-05-24',
       facultyCode: 'VMES',
@@ -47,6 +47,12 @@ describe('issuer academic DTOs', () => {
     });
     const wholeYear = plainToInstance(ListGraduatingStudentsDto, {
       graduationYear: '2025',
+      facultyCode: 'VMES',
+      programCode: 'SYN-VMES-CS',
+    });
+    const monthYear = plainToInstance(ListGraduatingStudentsDto, {
+      graduationYear: '2025',
+      graduationMonth: '5',
       facultyCode: 'VMES',
       programCode: 'SYN-VMES-CS',
     });
@@ -68,7 +74,12 @@ describe('issuer academic DTOs', () => {
 
     await expect(validate(exactDate)).resolves.toHaveLength(0);
     await expect(validate(wholeYear)).resolves.toHaveLength(0);
+    await expect(validate(monthYear)).resolves.toHaveLength(0);
     expect(wholeYear.graduationYear).toBe(2025);
+    expect(monthYear).toMatchObject({
+      graduationYear: 2025,
+      graduationMonth: 5,
+    });
     expect(await validate(invalidDate)).not.toHaveLength(0);
     expect(await validate(missingPeriod)).not.toHaveLength(0);
     expect(await validate(conflictingPeriods)).not.toHaveLength(0);

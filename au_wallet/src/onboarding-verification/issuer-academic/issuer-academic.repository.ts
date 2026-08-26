@@ -48,6 +48,7 @@ type ProgramOptionRow = Omit<ProgramRow, 'program_id' | 'required_credits'>;
 interface GraduationRow {
   enrollment_id: number;
   graduation_date: string | null;
+  graduation_class: number | null;
   total_credits_completed: number | string;
   total_credits_transferred: number | string;
   total_credits_earned: number | string;
@@ -255,6 +256,7 @@ export class IssuerAcademicRepository {
   async listGraduatingStudents(input: {
     graduationDate?: string;
     graduationYear?: number;
+    graduationMonth?: number;
     facultyCode: string;
     programCode: string;
   }): Promise<IssuerStudentSummary[]> {
@@ -276,13 +278,30 @@ export class IssuerAcademicRepository {
       .schema('academic')
       .from('graduation_record')
       .select(
-        'enrollment_id, graduation_date, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
+        'enrollment_id, graduation_date, graduation_class, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
       );
-    const filteredGraduationQuery = input.graduationDate
-      ? graduationQuery.eq('graduation_date', input.graduationDate)
-      : graduationQuery
-          .gte('graduation_date', `${input.graduationYear!}-01-01`)
-          .lt('graduation_date', `${input.graduationYear! + 1}-01-01`);
+    let filteredGraduationQuery = graduationQuery;
+    if (input.graduationDate) {
+      filteredGraduationQuery = graduationQuery.eq(
+        'graduation_date',
+        input.graduationDate,
+      );
+    } else if (input.graduationMonth) {
+      const year = input.graduationYear!;
+      const month = input.graduationMonth;
+      const nextYear = month === 12 ? year + 1 : year;
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const paddedMonth = String(month).padStart(2, '0');
+      const paddedNextMonth = String(nextMonth).padStart(2, '0');
+      filteredGraduationQuery = graduationQuery
+        .gte('graduation_date', `${year}-${paddedMonth}-01`)
+        .lt('graduation_date', `${nextYear}-${paddedNextMonth}-01`);
+    } else {
+      const year = input.graduationYear!;
+      filteredGraduationQuery = graduationQuery
+        .gte('graduation_date', `${year}-01-01`)
+        .lt('graduation_date', `${year + 1}-01-01`);
+    }
     const { data: graduations, error: graduationError } =
       await filteredGraduationQuery
         .limit(100)
@@ -451,7 +470,7 @@ export class IssuerAcademicRepository {
         .schema('academic')
         .from('graduation_record')
         .select(
-          'enrollment_id, graduation_date, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
+          'enrollment_id, graduation_date, graduation_class, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
         )
         .in('enrollment_id', enrollmentIds)
         .overrideTypes<GraduationRow[], { merge: false }>(),
@@ -535,7 +554,7 @@ export class IssuerAcademicRepository {
         .schema('academic')
         .from('graduation_record')
         .select(
-          'enrollment_id, graduation_date, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
+          'enrollment_id, graduation_date, graduation_class, total_credits_completed, total_credits_transferred, total_credits_earned, cumulative_gpa, award, requirements_fulfilled, graduation_status',
         )
         .eq('enrollment_id', enrollment.enrollment_id)
         .maybeSingle()
@@ -623,6 +642,7 @@ export class IssuerAcademicRepository {
       majorConcentration: context.program.major_concentration,
       academicStatus: context.enrollment.academic_status,
       graduationDate: context.graduation?.graduation_date ?? null,
+      graduationClass: context.graduation?.graduation_class ?? null,
       walletEligibility: context.walletEligibility,
     };
   }
