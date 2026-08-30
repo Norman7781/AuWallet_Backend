@@ -221,6 +221,7 @@ describe('IssuerAcademicRepository', () => {
           fullName: 'Mr Kawin Rattanakul',
           programCode: 'SYN-VMES-CS',
           graduationClass: 52,
+          graduationYear: 2025,
           walletEligibility: 'verified',
         }),
       ],
