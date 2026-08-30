@@ -642,6 +642,9 @@ export class IssuerAcademicRepository {
       majorConcentration: context.program.major_concentration,
       academicStatus: context.enrollment.academic_status,
       graduationDate: context.graduation?.graduation_date ?? null,
+      graduationYear: context.graduation?.graduation_date
+        ? Number(context.graduation.graduation_date.slice(0, 4))
+        : null,
       graduationClass: context.graduation?.graduation_class ?? null,
       walletEligibility: context.walletEligibility,
     };

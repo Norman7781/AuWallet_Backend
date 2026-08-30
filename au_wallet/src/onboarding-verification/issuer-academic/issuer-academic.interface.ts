@@ -20,6 +20,7 @@ export interface IssuerStudentSummary {
   majorConcentration: string | null;
   academicStatus: string;
   graduationDate: string | null;
+  graduationYear: number | null;
   graduationClass: number | null;
   walletEligibility: WalletEligibility;
 }
