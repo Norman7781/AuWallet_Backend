@@ -1,11 +1,9 @@
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
   IsInt,
   IsOptional,
+  IsString,
   Matches,
-  Max,
-  Min,
   Validate,
   ValidationArguments,
   ValidatorConstraint,
@@ -37,22 +35,20 @@ class ValidGraduationPeriodConstraint implements ValidatorConstraintInterface {
 }
 
 export class ListGraduatingStudentsDto {
+  // 👉 ADD @IsOptional() HERE to stop the "is required" error!
   @IsOptional()
-  @IsDateString({ strict: true })
+  @IsString()
   graduationDate?: string;
 
+  // 👉 MAKE SURE graduationYear IS HERE so the backend accepts it!
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1900)
-  @Max(2200)
   graduationYear?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(12)
   graduationMonth?: number;
 
   @Validate(ValidGraduationPeriodConstraint)
