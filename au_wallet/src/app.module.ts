@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { AuthHolderAccountModule } from './auth-holder-account/auth-holder-account.module';
+import { AuthIssuerAccountModule } from './auth-issuer-account/auth-issuer-account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnvironment } from './config/environment';
@@ -17,6 +18,7 @@ import { VcModule } from './VC_Management/Vc_module';
     }),
 
     AuthHolderAccountModule,
+    AuthIssuerAccountModule,
     OnboardingVerificationModule,
     VcModule,
   ],

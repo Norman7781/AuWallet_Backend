@@ -212,6 +212,43 @@ type WalletOnboardingRequestTable = {
   Relationships: [];
 };
 
+type IssuerAccountTable = {
+  Row: {
+    id: string;
+    name: string;
+    email: string;
+    password_hash: string;
+    role: string;
+    issuer_provider_id: number | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    id?: string;
+    name: string;
+    email: string;
+    password_hash: string;
+    role?: string;
+    issuer_provider_id?: number | null;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: {
+    id?: string;
+    name?: string;
+    email?: string;
+    password_hash?: string;
+    role?: string;
+    issuer_provider_id?: number | null;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Relationships: [];
+};
+
 type EmptySchema = {
   Tables: {
     [_ in never]: never;
@@ -248,6 +285,7 @@ export type Database = {
     Tables: {
       holder_account: HolderAccountTable;
       holder_issuer_connection: HolderIssuerConnectionTable;
+      issuer_account: IssuerAccountTable;
       issuer_provider: IssuerProviderTable;
       login_history: LoginHistoryTable;
       uploaded_identity_document: UntypedTable;
