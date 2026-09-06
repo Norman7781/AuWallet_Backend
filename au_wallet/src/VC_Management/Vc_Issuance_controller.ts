@@ -81,6 +81,12 @@ function isRedeemableStatus(status: string): boolean {
   return status === 'pending' || status === 'token_issued';
 }
 
+function nonceExpirationIso(): string {
+  return new Date(
+    Date.now() + C_NONCE_LIFETIME_SECONDS * 1000,
+  ).toISOString();
+}
+
 @Controller()
 export class VcIssuanceController {
   constructor(
@@ -179,6 +185,7 @@ export class VcIssuanceController {
 
     const preAuthCode = randomUUID();
     const cNonce = randomUUID();
+    const cNonceExpiresAt = nonceExpirationIso();
     // randomInt() uses an exclusive upper bound, so 1_000_000 is required
     // to make 999999 reachable.
     const txCode = randomInt(100000, 1000000).toString();
@@ -190,6 +197,7 @@ export class VcIssuanceController {
       claims,
       preAuthCode,
       cNonce,
+      cNonceExpiresAt,
       hashTxCode(txCode),
     );
 
@@ -251,40 +259,73 @@ export class VcIssuanceController {
     }
 
     const offers = await this.issuanceRepo.findByStudentId(holder.studentId);
+    const rows = offers || [];
+    const latestPendingOffer = rows.find((offer) => offer.status === 'pending');
+    const issuedOffers = rows.filter((offer) => offer.status === 'issued');
 
-    const data = (offers || [])
-      .filter((o) => o.status === 'pending' || o.status === 'issued')
-      .map((o) => {
-        const claims = o.claims as any;
-        const programContext = claims?.student?.programContext ?? {};
-        const degree = programContext?.name ?? '';
-        const major =
-          programContext?.programType && programContext.programType.length
-            ? programContext.programType[0].name
-            : '';
-        const graduationDate = programContext?.endDate ?? null;
-        const gpa = claims?.academicSummary?.totalGPAX ?? null;
+    // Older pending rows are historical, unclaimed offers. They must never
+    // be made actionable again merely because a holder opens their wallet.
+    // New creations revoke any earlier pending offer, but keeping this limit
+    // also protects holders while old data is being cleaned up.
+    const offerRows = latestPendingOffer
+      ? [latestPendingOffer, ...issuedOffers]
+      : issuedOffers;
+    const offersWithDirectNonce = await Promise.all(
+      offerRows.map(async (offer) => {
+        if (offer.status !== 'pending') return offer;
 
-        return {
-          offerId: o.code,
-          credentialType: 'academic_transcript',
-          displayName: 'Education Transcript VC',
-          issuerName: 'AU Registrar',
-          issuerDid: ISSUER_DID,
-          studentNumber: holder.studentId,
-          holderName: `${holder.firstName} ${holder.lastName}`.trim(),
-          status: o.status,
-          createdAt: o.created_at,
-          acceptedAt: o.accepted_at ?? null,
-          credentialId: o.credential_id ?? null,
-          preview: {
-            degree,
-            major,
-            graduationDate,
-            gpa,
-          },
-        };
-      });
+        const updated = await this.issuanceRepo.ensureActiveDirectOfferNonce(
+          offer,
+          holder.holderAccountId,
+          randomUUID(),
+          nonceExpirationIso(),
+        );
+
+        if (!updated?.c_nonce) {
+          throw new NotFoundException('offer no longer available');
+        }
+
+        return updated;
+      }),
+    );
+
+    const data = offersWithDirectNonce.map((o) => {
+      const claims = o.claims as any;
+      const programContext = claims?.student?.programContext ?? {};
+      const degree = programContext?.name ?? '';
+      const major =
+        programContext?.programType && programContext.programType.length
+          ? programContext.programType[0].name
+          : '';
+      const graduationDate = programContext?.endDate ?? null;
+      const gpa = claims?.academicSummary?.totalGPAX ?? null;
+
+      return {
+        offerId: o.code,
+        credentialType: 'academic_transcript',
+        displayName: 'Education Transcript VC',
+        issuerName: 'AU Registrar',
+        issuerDid: ISSUER_DID,
+        studentNumber: holder.studentId,
+        holderName: `${holder.firstName} ${holder.lastName}`.trim(),
+        status: o.status,
+        createdAt: o.created_at,
+        acceptedAt: o.accepted_at ?? null,
+        credentialId: o.credential_id ?? null,
+        ...(o.status === 'pending'
+          ? {
+              credentialIssuer: ISSUER_BASE_URL,
+              nonce: o.c_nonce,
+            }
+          : {}),
+        preview: {
+          degree,
+          major,
+          graduationDate,
+          gpa,
+        },
+      };
+    });
 
     return { data, message: 'Request completed successfully.', meta: {} };
   }
@@ -323,8 +364,16 @@ export class VcIssuanceController {
       throw new BadRequestException('missing proof-of-possession JWT');
     }
 
-    if (!offer.c_nonce) {
-      throw new BadRequestException('no active nonce for this offer');
+    if (
+      !offer.c_nonce ||
+      !offer.c_nonce_expires_at ||
+      offer.c_nonce_consumed_at ||
+      offer.c_nonce_holder_account_id !== holder.holderAccountId ||
+      Date.parse(offer.c_nonce_expires_at) <= Date.now()
+    ) {
+      throw new BadRequestException(
+        'offer nonce is invalid or expired; refresh offers and try again',
+      );
     }
 
     // Signing happens BEFORE any DB write. If this throws, we return early —
@@ -333,6 +382,7 @@ export class VcIssuanceController {
       body.proof.jwt,
       ISSUER_BASE_URL,
       offer.c_nonce,
+      holder.authUserId,
     );
 
     let credential: string;
@@ -355,6 +405,8 @@ export class VcIssuanceController {
     const updated = await this.issuanceRepo.markIssuedFromAccept(
       offerId,
       holder.studentId,
+      holder.holderAccountId,
+      offer.c_nonce,
       credentialId,
     );
 
@@ -372,6 +424,7 @@ export class VcIssuanceController {
         offerId: updated.code,
         status: updated.status,
         issuedAt: updated.issued_at,
+        acceptedAt: updated.accepted_at,
         credentialId: updated.credential_id,
       },
       message: 'Credential issued.',
@@ -430,8 +483,14 @@ export class VcIssuanceController {
     // 256 bits of random bearer-token entropy.
     const accessToken = randomBytes(32).toString('base64url');
     const cNonce = randomUUID();
+    const cNonceExpiresAt = nonceExpirationIso();
 
-    await this.issuanceRepo.attachAccessToken(code, accessToken, cNonce);
+    await this.issuanceRepo.attachAccessToken(
+      code,
+      accessToken,
+      cNonce,
+      cNonceExpiresAt,
+    );
 
     return {
       access_token: accessToken,
@@ -461,7 +520,7 @@ export class VcIssuanceController {
       throw new UnauthorizedException('invalid_token');
     }
 
-    if (!offer.cNonce) {
+    if (!offer.c_nonce) {
       throw new BadRequestException('no active nonce for this offer');
     }
 
@@ -482,7 +541,7 @@ export class VcIssuanceController {
     const holderPublicJwk = await this.popService.verifyAndExtractKey(
       body.proof.jwt,
       ISSUER_BASE_URL,
-      offer.cNonce,
+      offer.c_nonce,
     );
 
     let credential: string;
