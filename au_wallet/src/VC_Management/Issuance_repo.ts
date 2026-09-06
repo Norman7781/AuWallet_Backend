@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AcademicTranscriptClaims } from './Academic_tran_type';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -113,9 +114,34 @@ export class IssuanceRepository {
   async findByStudentId(studentId: string) {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')
-      .select('code, status, created_at, issued_at')
+      .select('code, claims, status, created_at, issued_at')
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Atomically accept a pending offer belonging to the given student.
+   * Returns the updated row including any generated credential_id and accepted_at.
+   */
+  async acceptOffer(code: string, studentId: string) {
+    const acceptedAt = new Date().toISOString();
+    const credentialId = randomUUID();
+
+    const { data, error } = await this.supabase
+      .from('vc_issuance_log')
+      .update({
+        status: 'accepted',
+        credential_id: credentialId,
+        accepted_at: acceptedAt,
+      })
+      .eq('code', code)
+      .eq('student_id', studentId)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
 
     if (error) throw error;
     return data;

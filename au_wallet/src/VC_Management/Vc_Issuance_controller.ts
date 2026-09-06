@@ -210,7 +210,7 @@ export class VcIssuanceController {
     };
 
     return {
-      offerId: record.id,
+      offerId: record.code,
       status: record.status,
       credential_offer_uri: `openid-credential-offer://?credential_offer=${encodeURIComponent(
         JSON.stringify(offer),
@@ -287,6 +287,49 @@ export class VcIssuanceController {
       });
 
     return { data, message: 'Request completed successfully.', meta: {} };
+  }
+
+  // Holder action — accept an offer. Must belong to the authenticated holder.
+  @Post('vc/academic-transcripts/offers/:offerId/accept')
+  @UseGuards(JwtAuthGuard)
+  async acceptOffer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('offerId') offerId: string,
+  ) {
+    const holder = await this.holderAccountService.getProfileByAuthUserId(
+      user.supabaseAuthId,
+    );
+
+    if (
+      !holder ||
+      !holder.studentId ||
+      holder.accountStatus !== AccountStatus.ACTIVE ||
+      !holder.confirmedAt
+    ) {
+      throw new UnauthorizedException('holder_not_active_or_unconfirmed');
+    }
+
+    // Attempt to atomically accept the offer that belongs to this student
+    const updated = await this.issuanceRepo.acceptOffer(
+      offerId,
+      holder.studentId,
+    );
+
+    if (!updated) {
+      // Either not found, not owned by this student, or not in pending state
+      throw new NotFoundException('offer not found');
+    }
+
+    return {
+      data: {
+        offerId: updated.code,
+        status: updated.status,
+        credentialId: updated.credential_id ?? null,
+        acceptedAt: updated.accepted_at ?? null,
+      },
+      message: 'Credential offer accepted.',
+      meta: {},
+    };
   }
 
   // Admin action — cancel an offer before the holder claims it.
