@@ -110,6 +110,16 @@ export class IssuanceRepository {
     if (error) throw error;
     return data;
   }
+  async findByStudentId(studentId: string) {
+    const { data, error } = await this.supabase
+      .from('vc_issuance_log')
+      .select('id, status, created_at, issued_at')
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
 
   /** Audit: which students received which credentials */
   async listIssued() {

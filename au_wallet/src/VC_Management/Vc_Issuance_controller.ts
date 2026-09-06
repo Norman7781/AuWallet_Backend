@@ -8,7 +8,12 @@ import {
   Param,
   Post,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth-holder-account/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth-holder-account/common/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth-holder-account/common/interfaces/authenticated-user.interface';
+import { HolderAccountService } from '../auth-holder-account/holder-account/holder-account.service';
 import {
   createHash,
   randomBytes,
@@ -82,6 +87,7 @@ export class VcIssuanceController {
     private readonly issuanceRepo: IssuanceRepository,
     private readonly popService: ProofOfPossessionService,
     private readonly studentAcademicService: StudentAcademicService,
+    private readonly holderAccountService: HolderAccountService,
   ) {}
 
   /**
@@ -152,10 +158,11 @@ export class VcIssuanceController {
   async createAcademicTranscriptOffer(
     @Body() dto: CreateAcademicTranscriptOfferDto,
   ) {
-    const record = await this.studentAcademicService.getFullAcademicRecord(
-      dto.studentNumber,
-    );
-    const claims = buildAcademicTranscriptClaims(record);
+    const academicRecord =
+      await this.studentAcademicService.getFullAcademicRecord(
+        dto.studentNumber,
+      );
+    const claims = buildAcademicTranscriptClaims(academicRecord);
 
     try {
       validateAcademicTranscriptClaims(claims);
@@ -175,11 +182,14 @@ export class VcIssuanceController {
     // to make 999999 reachable.
     const txCode = randomInt(100000, 1000000).toString();
 
-    await this.issuanceRepo.savePendingOffer(
+    // Persist a hash of the PIN, never the PIN itself — verifyTxCode()
+    // in the /token handler expects tx_code_hash to be a sha256 hex
+    // digest and will reject every redemption otherwise.
+    const record = await this.issuanceRepo.savePendingOffer(
       claims,
       preAuthCode,
       cNonce,
-      txCode,
+      hashTxCode(txCode),
     );
 
     const offer = {
@@ -199,10 +209,50 @@ export class VcIssuanceController {
     };
 
     return {
+      offerId: record.id,
+      status: record.status,
       credential_offer_uri: `openid-credential-offer://?credential_offer=${encodeURIComponent(
         JSON.stringify(offer),
       )}`,
       tx_code: txCode,
+    };
+  }
+
+  // Student-facing: list this holder's own offers (pending/issued/revoked).
+  //
+  // Resolves the caller's AU admission number through the same path
+  // HolderAccountController#getMe uses (JWT -> supabaseAuthId ->
+  // getProfileByAuthUserId -> verified AU connection -> admission_no).
+  // If the holder hasn't completed a verified AU connection yet, there is
+  // no student number to look offers up by, so we return an empty list
+  // rather than erroring — "no offers" is the correct answer for someone
+  // who isn't linked to a student record yet, not a failure.
+  //
+  // ⚠️ UNVERIFIED: this assumes HolderAccount.studentId (admission_no) is
+  // the same value stored as vc_issuance_log.student_id (originally
+  // claims.student.identifier.value). I have not seen
+  // academic-transcript_builder.ts to confirm that identifier is built
+  // from admission_no — please check before relying on this in production.
+  @Get('vc/academic-transcripts/offers/me')
+  @UseGuards(JwtAuthGuard)
+  async getMyOffers(@CurrentUser() user: AuthenticatedUser) {
+    const holder = await this.holderAccountService.getProfileByAuthUserId(
+      user.supabaseAuthId,
+    );
+
+    if (!holder?.studentId) {
+      return { offers: [] };
+    }
+
+    const offers = await this.issuanceRepo.findByStudentId(holder.studentId);
+
+    return {
+      offers: offers.map((o) => ({
+        offerId: o.id,
+        status: o.status,
+        createdAt: o.created_at,
+        issuedAt: o.issued_at,
+      })),
     };
   }
 

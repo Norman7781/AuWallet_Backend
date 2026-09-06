@@ -6,9 +6,11 @@ import { VcIssuanceController } from './Vc_Issuance_controller';
 import { ProofOfPossessionService } from './proof-of-possession_service';
 import { OnboardingVerificationModule } from '../onboarding-verification/onboarding-verification.module';
 import { StudentAcademicService } from './student-academic_service';
+import { HolderAccountModule } from '../auth-holder-account/holder-account/holder-account.module';
+import { UsersModule } from '../auth-holder-account/users/users.module';
 
 @Module({
-  imports: [OnboardingVerificationModule],
+  imports: [OnboardingVerificationModule, UsersModule, HolderAccountModule],
   controllers: [DidWebController, VcIssuanceController],
   providers: [
     VcService,
