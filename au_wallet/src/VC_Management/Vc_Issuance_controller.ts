@@ -241,8 +241,6 @@ export class VcIssuanceController {
       user.supabaseAuthId,
     );
 
-    // Ensure holder exists, is active, and has a confirmed account before
-    // returning any offers. If not, return an empty data array.
     if (
       !holder ||
       !holder.studentId ||
@@ -255,7 +253,7 @@ export class VcIssuanceController {
     const offers = await this.issuanceRepo.findByStudentId(holder.studentId);
 
     const data = (offers || [])
-      .filter((o) => o.status === 'pending')
+      .filter((o) => o.status === 'pending' || o.status === 'accepted')
       .map((o) => {
         const claims = o.claims as any;
         const programContext = claims?.student?.programContext ?? {};
@@ -277,6 +275,8 @@ export class VcIssuanceController {
           holderName: `${holder.firstName} ${holder.lastName}`.trim(),
           status: o.status,
           createdAt: o.created_at,
+          acceptedAt: o.accepted_at ?? null,
+          credentialId: o.credential_id ?? null,
           preview: {
             degree,
             major,
