@@ -248,7 +248,7 @@ export class VcIssuanceController {
 
     return {
       offers: offers.map((o) => ({
-        offerId: o.id,
+        offerId: o.code,
         status: o.status,
         createdAt: o.created_at,
         issuedAt: o.issued_at,

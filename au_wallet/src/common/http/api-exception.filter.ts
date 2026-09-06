@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
 
@@ -35,7 +36,13 @@ const MESSAGE_BY_STATUS: Record<number, string> = {
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (!(exception instanceof HttpException) || exception.getStatus() >= 500) {
+      this.logger.error(
+        exception instanceof Error ? exception.stack : exception,
+      );
+    }
     const response = host.switchToHttp().getResponse<Response>();
     const status =
       exception instanceof HttpException

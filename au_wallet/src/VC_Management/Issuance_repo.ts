@@ -113,7 +113,7 @@ export class IssuanceRepository {
   async findByStudentId(studentId: string) {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')
-      .select('id, status, created_at, issued_at')
+      .select('code, status, created_at, issued_at')
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
