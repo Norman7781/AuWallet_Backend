@@ -253,7 +253,7 @@ export class VcIssuanceController {
     const offers = await this.issuanceRepo.findByStudentId(holder.studentId);
 
     const data = (offers || [])
-      .filter((o) => o.status === 'pending' || o.status === 'accepted')
+      .filter((o) => o.status === 'pending' || o.status === 'issued')
       .map((o) => {
         const claims = o.claims as any;
         const programContext = claims?.student?.programContext ?? {};
@@ -295,6 +295,7 @@ export class VcIssuanceController {
   async acceptOffer(
     @CurrentUser() user: AuthenticatedUser,
     @Param('offerId') offerId: string,
+    @Body() body: { proof?: { proof_type?: string; jwt?: string } },
   ) {
     const holder = await this.holderAccountService.getProfileByAuthUserId(
       user.supabaseAuthId,
@@ -309,25 +310,71 @@ export class VcIssuanceController {
       throw new UnauthorizedException('holder_not_active_or_unconfirmed');
     }
 
-    // Attempt to atomically accept the offer that belongs to this student
-    const updated = await this.issuanceRepo.acceptOffer(
+    const offer = await this.issuanceRepo.findPendingByCode(offerId);
+    if (
+      !offer ||
+      offer.status !== 'pending' ||
+      offer.student_id !== holder.studentId
+    ) {
+      throw new NotFoundException('offer not found');
+    }
+
+    if (!body?.proof || body.proof.proof_type !== 'jwt' || !body.proof.jwt) {
+      throw new BadRequestException('missing proof-of-possession JWT');
+    }
+
+    if (!offer.c_nonce) {
+      throw new BadRequestException('no active nonce for this offer');
+    }
+
+    // Signing happens BEFORE any DB write. If this throws, we return early —
+    // the offer row is untouched and stays 'pending', so it's retryable.
+    const holderPublicJwk = await this.popService.verifyAndExtractKey(
+      body.proof.jwt,
+      ISSUER_BASE_URL,
+      offer.c_nonce,
+    );
+
+    let credential: string;
+    try {
+      credential = await this.vcService.issueAcademicTranscript(
+        offer.claims,
+        holderPublicJwk,
+      );
+    } catch (err) {
+      if (err instanceof InvalidHolderKeyError) {
+        throw new BadRequestException({
+          error: 'invalid_proof',
+          error_description: err.message,
+        });
+      }
+      throw err; // signing failed for another reason — offer stays pending
+    }
+
+    const credentialId = randomUUID();
+    const updated = await this.issuanceRepo.markIssuedFromAccept(
       offerId,
       holder.studentId,
+      credentialId,
     );
 
     if (!updated) {
-      // Either not found, not owned by this student, or not in pending state
-      throw new NotFoundException('offer not found');
+      // Someone else already accepted/issued it concurrently between our
+      // read and write — the signed credential exists but shouldn't be
+      // returned as if this call issued it.
+      throw new NotFoundException('offer no longer available');
     }
 
     return {
       data: {
+        credential,
+        format: 'dc+sd-jwt',
         offerId: updated.code,
         status: updated.status,
-        credentialId: updated.credential_id ?? null,
-        acceptedAt: updated.accepted_at ?? null,
+        issuedAt: updated.issued_at,
+        credentialId: updated.credential_id,
       },
-      message: 'Credential offer accepted.',
+      message: 'Credential issued.',
       meta: {},
     };
   }

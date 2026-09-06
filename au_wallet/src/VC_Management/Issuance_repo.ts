@@ -147,6 +147,33 @@ export class IssuanceRepository {
     return data;
   }
 
+  /**
+   * Atomically transitions a pending offer straight to issued, storing the
+   * signed credential's ID. Only succeeds if the offer is still 'pending'
+   * for this student — prevents double-issuance and races.
+   */
+  async markIssuedFromAccept(
+    code: string,
+    studentId: string,
+    credentialId: string,
+  ) {
+    const { data, error } = await this.supabase
+      .from('vc_issuance_log')
+      .update({
+        status: 'issued',
+        credential_id: credentialId,
+        issued_at: new Date().toISOString(),
+      })
+      .eq('code', code)
+      .eq('student_id', studentId)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
+
   /** Audit: which students received which credentials */
   async listIssued() {
     const { data, error } = await this.supabase
