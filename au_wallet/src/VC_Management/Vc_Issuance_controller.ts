@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth-holder-account/common/decorators/current-us
 import { JwtAuthGuard } from '../auth-holder-account/common/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth-holder-account/common/interfaces/authenticated-user.interface';
 import { HolderAccountService } from '../auth-holder-account/holder-account/holder-account.service';
+import { AccountStatus } from '../auth-holder-account/common/enums/account-status.enum';
 import {
   createHash,
   randomBytes,
@@ -240,20 +241,52 @@ export class VcIssuanceController {
       user.supabaseAuthId,
     );
 
-    if (!holder?.studentId) {
-      return { offers: [] };
+    // Ensure holder exists, is active, and has a confirmed account before
+    // returning any offers. If not, return an empty data array.
+    if (
+      !holder ||
+      !holder.studentId ||
+      holder.accountStatus !== AccountStatus.ACTIVE ||
+      !holder.confirmedAt
+    ) {
+      return { data: [], message: 'Request completed successfully.', meta: {} };
     }
 
     const offers = await this.issuanceRepo.findByStudentId(holder.studentId);
 
-    return {
-      offers: offers.map((o) => ({
-        offerId: o.code,
-        status: o.status,
-        createdAt: o.created_at,
-        issuedAt: o.issued_at,
-      })),
-    };
+    const data = (offers || [])
+      .filter((o) => o.status === 'pending')
+      .map((o) => {
+        const claims = o.claims as any;
+        const programContext = claims?.student?.programContext ?? {};
+        const degree = programContext?.name ?? '';
+        const major =
+          programContext?.programType && programContext.programType.length
+            ? programContext.programType[0].name
+            : '';
+        const graduationDate = programContext?.endDate ?? null;
+        const gpa = claims?.academicSummary?.totalGPAX ?? null;
+
+        return {
+          offerId: o.code,
+          credentialType: 'academic_transcript',
+          displayName: 'Education Transcript VC',
+          issuerName: 'AU Registrar',
+          issuerDid: ISSUER_DID,
+          studentNumber: holder.studentId,
+          holderName: `${holder.firstName} ${holder.lastName}`.trim(),
+          status: o.status,
+          createdAt: o.created_at,
+          preview: {
+            degree,
+            major,
+            graduationDate,
+            gpa,
+          },
+        };
+      });
+
+    return { data, message: 'Request completed successfully.', meta: {} };
   }
 
   // Admin action — cancel an offer before the holder claims it.
