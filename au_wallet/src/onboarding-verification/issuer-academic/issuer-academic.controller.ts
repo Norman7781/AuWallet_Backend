@@ -12,13 +12,14 @@ import {
 import { ListGraduatingStudentsDto } from './dto/list-graduating-students.dto';
 import { ListIssuerProgramsDto } from './dto/list-issuer-programs.dto';
 import { ListIssuerStudentsDto } from './dto/list-issuer-students.dto';
+import { ListIssuedCredentialsDto } from './dto/list-issued-credentials.dto';
 import { IssuerStudentNumberDto } from './dto/issuer-student-number.dto';
 import { ResolveWalletEligibilityDto } from './dto/resolve-wallet-eligibility.dto';
 import { IssuerAcademicService } from './issuer-academic.service';
-import { NonProductionDashboardGuard } from '../issuer-dashboard/non-production-dashboard.guard';
+import { IssuerApiAuthGuard } from './issuer-api-auth.guard';
 
 @Controller('issuer')
-@UseGuards(NonProductionDashboardGuard)
+@UseGuards(IssuerApiAuthGuard)
 export class IssuerAcademicController {
   constructor(private readonly issuerAcademic: IssuerAcademicService) {}
 
@@ -30,6 +31,11 @@ export class IssuerAcademicController {
   @Get('students')
   listStudents(@Query() query: ListIssuerStudentsDto) {
     return this.issuerAcademic.listStudents(query);
+  }
+
+  @Get('credentials')
+  listIssuedCredentials(@Query() query: ListIssuedCredentialsDto) {
+    return this.issuerAcademic.listIssuedCredentials(query);
   }
 
   @Get('students/:studentNumber/academic-review')

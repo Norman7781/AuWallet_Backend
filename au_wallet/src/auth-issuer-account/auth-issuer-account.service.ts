@@ -17,9 +17,6 @@ export class AuthIssuerAccountService {
   async validateLogin(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    console.log('[issuer-login] incoming email:', normalizedEmail);
-    console.log('[issuer-login] incoming password:', password);
-
     const { data: admin, error } = await this.supabase
       .schema('wallet')
       .from('issuer_account')
@@ -28,15 +25,11 @@ export class AuthIssuerAccountService {
       .eq('is_active', true)
       .single<IssuerAccountRow>();
 
-    console.log('[issuer-login] query result admin:', admin);
-    console.log('[issuer-login] query error:', error);
-
     if (error || !admin) {
       throw new UnauthorizedException('Incorrect email or password.');
     }
 
     const passwordMatches = await bcrypt.compare(password, admin.password_hash);
-    console.log('[issuer-login] bcrypt.compare result:', passwordMatches);
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Incorrect email or password.');

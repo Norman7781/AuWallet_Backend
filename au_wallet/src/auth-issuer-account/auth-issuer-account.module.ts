@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthIssuerAccountController } from './auth-issuer-account.controller';
 import { AuthIssuerAccountService } from './auth-issuer-account.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
@@ -23,7 +24,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
     }),
   ],
   controllers: [AuthIssuerAccountController],
-  providers: [AuthIssuerAccountService, JwtStrategy],
-  exports: [JwtModule],
+  providers: [AuthIssuerAccountService, JwtStrategy, JwtAuthGuard],
+  exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthIssuerAccountModule {}

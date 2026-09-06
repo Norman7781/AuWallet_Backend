@@ -13,6 +13,7 @@ describe('IssuerAcademicService', () => {
     academicStatus: 'graduated',
     graduationDate: '2025-05-24',
     walletEligibility: 'not_verified' as const,
+    credentialStatus: 'not_verified' as const,
   };
 
   it('returns the exact program-options envelope', async () => {
@@ -55,6 +56,34 @@ describe('IssuerAcademicService', () => {
       data: { students: [student] },
       message: 'Issuer students loaded.',
       meta: { page: 2, pageSize: 25, total: 26, totalPages: 2 },
+    });
+  });
+
+  it('returns a paginated issued-credentials envelope', async () => {
+    const credentials = [
+      {
+        credentialId: 'credential-123',
+        studentNumber: '6499002',
+        major: 'Computer Science',
+        credentialType: 'academic_transcript' as const,
+        issuedAt: '2026-09-06T10:00:00.000Z',
+        status: 'issued' as const,
+      },
+    ];
+    const repository = {
+      listIssuedCredentials: jest.fn().mockResolvedValue({
+        credentials,
+        total: 1,
+      }),
+    };
+    const service = new IssuerAcademicService(repository as never);
+
+    await expect(
+      service.listIssuedCredentials({ page: 1, pageSize: 25 }),
+    ).resolves.toEqual({
+      data: { credentials },
+      message: 'Issued credentials loaded.',
+      meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 },
     });
   });
 

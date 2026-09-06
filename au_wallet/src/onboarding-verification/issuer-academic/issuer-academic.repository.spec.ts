@@ -66,6 +66,7 @@ function createRepository(
   return {
     repository: new IssuerAcademicRepository({
       schema,
+      client: { from },
     } as unknown as SupabaseService),
     queries,
     from,
@@ -205,6 +206,7 @@ describe('IssuerAcademicRepository', () => {
         data: [{ verified_enrollment_id: 11 }],
         error: null,
       },
+      vc_issuance_log: { data: [{ student_id: '6499002' }], error: null },
     });
 
     const result = await repository.listStudents({
@@ -223,14 +225,15 @@ describe('IssuerAcademicRepository', () => {
           graduationClass: 52,
           graduationYear: 2025,
           walletEligibility: 'verified',
+          credentialStatus: 'issued',
         }),
       ],
     });
     expect(queries.student[0].range).toHaveBeenCalledWith(0, 24);
     expect(queries.student[0].or).toHaveBeenCalledTimes(1);
-    expect(from).toHaveBeenCalledTimes(6);
+    expect(from).toHaveBeenCalledTimes(7);
     expect(JSON.stringify(result)).not.toMatch(
-      /dateOfBirth|email|passport|hmac|holder(Account)?Id|auth(User)?Id|providerId|connectionId|enrollmentId|did|credential/i,
+      /dateOfBirth|email|passport|hmac|holder(Account)?Id|auth(User)?Id|providerId|connectionId|enrollmentId|did/i,
     );
     const selectedColumns = Object.values(queries)
       .flat()
@@ -242,6 +245,54 @@ describe('IssuerAcademicRepository', () => {
       .join(',');
     expect(selectedColumns).not.toMatch(
       /date_of_birth|email|passport|hmac|holder_account_id|auth_user_id/i,
+    );
+  });
+
+  it('lists only completed issued credentials with safe display fields', async () => {
+    const { repository, queries } = createRepository({
+      vc_issuance_log: {
+        data: [
+          {
+            code: 'offer-123',
+            student_id: '6499002',
+            credential_id: 'credential-123',
+            issued_at: '2026-09-06T10:00:00.000Z',
+            claims: {
+              student: {
+                programContext: {
+                  programType: [{ name: 'Computer Science' }],
+                },
+              },
+            },
+          },
+        ],
+        error: null,
+        count: 1,
+      },
+    });
+
+    await expect(
+      repository.listIssuedCredentials({ page: 1, pageSize: 25 }),
+    ).resolves.toEqual({
+      total: 1,
+      credentials: [
+        {
+          credentialId: 'credential-123',
+          studentNumber: '6499002',
+          major: 'Computer Science',
+          credentialType: 'academic_transcript',
+          issuedAt: '2026-09-06T10:00:00.000Z',
+          status: 'issued',
+        },
+      ],
+    });
+    expect(queries.vc_issuance_log[0].eq).toHaveBeenCalledWith(
+      'status',
+      'issued',
+    );
+    expect(queries.vc_issuance_log[0].select).toHaveBeenCalledWith(
+      'code, student_id, claims, credential_id, issued_at',
+      { count: 'exact' },
     );
   });
 

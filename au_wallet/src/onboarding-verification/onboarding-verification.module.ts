@@ -30,9 +30,15 @@ import { NonProductionDashboardGuard } from './issuer-dashboard/non-production-d
 import { IssuerAcademicController } from './issuer-academic/issuer-academic.controller';
 import { IssuerAcademicRepository } from './issuer-academic/issuer-academic.repository';
 import { IssuerAcademicService } from './issuer-academic/issuer-academic.service';
+import { IssuerApiAuthGuard } from './issuer-academic/issuer-api-auth.guard';
 
 @Module({
-  imports: [AuthHolderAccountModule, UsersModule, ConfigModule, SupabaseModule],
+  imports: [
+    AuthHolderAccountModule,
+    UsersModule,
+    ConfigModule,
+    SupabaseModule,
+  ],
   controllers: [
     OnboardingController,
     IssuerReviewController,
@@ -57,6 +63,7 @@ import { IssuerAcademicService } from './issuer-academic/issuer-academic.service
     IssuerAcademicRepository,
     IssuerAcademicService,
     NonProductionDashboardGuard,
+    IssuerApiAuthGuard,
     {
       provide: OnboardingApprovalFinalizer,
       useClass: SupabaseOnboardingApprovalFinalizer,

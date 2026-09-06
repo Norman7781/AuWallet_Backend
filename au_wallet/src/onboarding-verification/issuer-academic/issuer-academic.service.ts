@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ListGraduatingStudentsDto } from './dto/list-graduating-students.dto';
 import { ListIssuerStudentsDto } from './dto/list-issuer-students.dto';
+import { ListIssuedCredentialsDto } from './dto/list-issued-credentials.dto';
 import { IssuerAcademicRepository } from './issuer-academic.repository';
 
 @Injectable()
@@ -21,6 +22,21 @@ export class IssuerAcademicService {
     return {
       data: { students: result.students },
       message: 'Issuer students loaded.',
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: result.total,
+        totalPages: Math.ceil(result.total / query.pageSize),
+      },
+    };
+  }
+
+  async listIssuedCredentials(query: ListIssuedCredentialsDto) {
+    const result = await this.repository.listIssuedCredentials(query);
+
+    return {
+      data: { credentials: result.credentials },
+      message: 'Issued credentials loaded.',
       meta: {
         page: query.page,
         pageSize: query.pageSize,

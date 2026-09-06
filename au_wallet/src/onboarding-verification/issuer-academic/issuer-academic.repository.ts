@@ -10,6 +10,8 @@ import type {
   AcademicPreviewCourse,
   AcademicPreviewTerm,
   AcademicReview,
+  CredentialStatus,
+  IssuedCredentialSummary,
   IssuerProgramOption,
   IssuerStudentSummary,
   WalletEligibility,
@@ -66,6 +68,14 @@ interface ConnectionRow {
   verified_enrollment_id: number;
 }
 
+interface IssuedCredentialRow {
+  code: string;
+  student_id: string;
+  claims: unknown;
+  credential_id: string | null;
+  issued_at: string | null;
+}
+
 interface CourseResultRow {
   academic_term_id: number | null;
   course_id: number;
@@ -109,6 +119,12 @@ const GRADE_POINTS: Readonly<Record<string, number>> = {
 @Injectable()
 export class IssuerAcademicRepository {
   constructor(private readonly supabase: SupabaseService) {}
+
+  // `public.vc_issuance_log` is owned by the VC module and is not yet in the
+  // generated Database type used by the academic/wallet client wrapper.
+  private get publicClient() {
+    return this.supabase.client as any;
+  }
 
   async listPrograms(facultyCode: string): Promise<IssuerProgramOption[]> {
     const { data, error } = await this.supabase
@@ -165,8 +181,51 @@ export class IssuerAcademicRepository {
 
     if (error || count === null) this.fail();
 
+    const students = await this.loadStudentSummaries(data ?? []);
+
     return {
-      students: await this.loadStudentSummaries(data ?? []),
+      students: await this.applyIssuedCredentialStatus(students),
+      total: count,
+    };
+  }
+
+  async listIssuedCredentials(input: {
+    q?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ credentials: IssuedCredentialSummary[]; total: number }> {
+    const from = (input.page - 1) * input.pageSize;
+    const to = from + input.pageSize - 1;
+    let query = this.publicClient
+      .from('vc_issuance_log')
+      .select(
+        'code, student_id, claims, credential_id, issued_at',
+        { count: 'exact' },
+      )
+      .eq('status', 'issued')
+      .order('issued_at', { ascending: false })
+      .range(from, to);
+
+    if (input.q) {
+      const pattern = `%${input.q.trim()}%`;
+      query = query.or(`student_id.ilike.${pattern},code.ilike.${pattern}`);
+    }
+
+    const { data, error, count } = await query.overrideTypes();
+
+    if (error || count === null) this.fail();
+
+    return {
+      credentials: ((data ?? []) as IssuedCredentialRow[])
+        .filter((row) => row.issued_at !== null)
+        .map((row) => ({
+          credentialId: row.credential_id ?? row.code,
+          studentNumber: row.student_id,
+          major: this.extractMajor(row.claims),
+          credentialType: 'academic_transcript',
+          issuedAt: row.issued_at as string,
+          status: 'issued',
+        })),
       total: count,
     };
   }
@@ -509,6 +568,35 @@ export class IssuerAcademicRepository {
       .filter((row): row is IssuerStudentSummary => row !== null);
   }
 
+  private async applyIssuedCredentialStatus(
+    students: IssuerStudentSummary[],
+  ): Promise<IssuerStudentSummary[]> {
+    if (students.length === 0) return students;
+
+    const studentNumbers = [...new Set(students.map((row) => row.studentNumber))];
+    const query = this.publicClient
+      .from('vc_issuance_log')
+      .select('student_id')
+      .eq('status', 'issued')
+      .in('student_id', studentNumbers);
+    const issuedRows = await query.overrideTypes();
+
+    if (issuedRows.error) this.fail();
+
+    const issuedStudentNumbers = new Set(
+      ((issuedRows.data ?? []) as Array<Pick<IssuedCredentialRow, 'student_id'>>).map(
+        (row) => row.student_id,
+      ),
+    );
+
+    return students.map((student) => ({
+      ...student,
+      credentialStatus: issuedStudentNumbers.has(student.studentNumber)
+        ? 'issued'
+        : student.walletEligibility,
+    }));
+  }
+
   private async loadStudentContext(
     studentNumber: string,
   ): Promise<LoadedStudentContext> {
@@ -647,7 +735,17 @@ export class IssuerAcademicRepository {
         : null,
       graduationClass: context.graduation?.graduation_class ?? null,
       walletEligibility: context.walletEligibility,
+      credentialStatus: context.walletEligibility,
     };
+  }
+
+  private extractMajor(claims: unknown): string | null {
+    const programTypes = (claims as any)?.student?.programContext?.programType;
+    const major = Array.isArray(programTypes)
+      ? programTypes[0]?.name
+      : undefined;
+
+    return typeof major === 'string' && major.trim() ? major.trim() : null;
   }
 
   private toAcademicPreview(

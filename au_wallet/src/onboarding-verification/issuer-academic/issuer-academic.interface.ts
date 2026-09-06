@@ -1,4 +1,5 @@
 export type WalletEligibility = 'verified' | 'not_verified';
+export type CredentialStatus = WalletEligibility | 'issued';
 
 export interface IssuerProgramOption {
   facultyCode: string;
@@ -23,6 +24,20 @@ export interface IssuerStudentSummary {
   graduationYear: number | null;
   graduationClass: number | null;
   walletEligibility: WalletEligibility;
+  /**
+   * Display status for the issuer's Student Data table. `issued` takes
+   * precedence over wallet verification once a transcript VC is issued.
+   */
+  credentialStatus: CredentialStatus;
+}
+
+export interface IssuedCredentialSummary {
+  credentialId: string;
+  studentNumber: string;
+  major: string | null;
+  credentialType: 'academic_transcript';
+  issuedAt: string;
+  status: 'issued';
 }
 
 export interface AcademicReview extends IssuerStudentSummary {

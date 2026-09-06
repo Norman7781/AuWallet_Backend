@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import { ListGraduatingStudentsDto } from './list-graduating-students.dto';
 import { ListIssuerProgramsDto } from './list-issuer-programs.dto';
 import { ListIssuerStudentsDto } from './list-issuer-students.dto';
+import { ListIssuedCredentialsDto } from './list-issued-credentials.dto';
 import { ResolveWalletEligibilityDto } from './resolve-wallet-eligibility.dto';
 
 describe('issuer academic DTOs', () => {
@@ -37,6 +38,17 @@ describe('issuer academic DTOs', () => {
     });
 
     expect(await validate(dto)).not.toHaveLength(0);
+  });
+
+  it('accepts bounded issued-credential searches', async () => {
+    const dto = plainToInstance(ListIssuedCredentialsDto, {
+      q: '6499002',
+      page: '2',
+      pageSize: '25',
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+    expect(dto).toMatchObject({ q: '6499002', page: 2, pageSize: 25 });
   });
 
   it('accepts exact-date compatibility and a constrained month-year filter', async () => {
