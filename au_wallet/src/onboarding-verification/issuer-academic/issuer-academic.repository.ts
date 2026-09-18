@@ -734,9 +734,20 @@ export class IssuerAcademicRepository {
         ? Number(context.graduation.graduation_date.slice(0, 4))
         : null,
       graduationClass: context.graduation?.graduation_class ?? null,
+      graduationRecordStatus: this.graduationRecordStatus(context),
       walletEligibility: context.walletEligibility,
       credentialStatus: context.walletEligibility,
     };
+  }
+
+  private graduationRecordStatus(
+    context: LoadedStudentContext,
+  ): IssuerStudentSummary['graduationRecordStatus'] {
+    if (context.graduation) return 'recorded';
+
+    return ['graduated', 'alumni'].includes(context.enrollment.academic_status)
+      ? 'missing'
+      : 'not_applicable';
   }
 
   private extractMajor(claims: unknown): string | null {

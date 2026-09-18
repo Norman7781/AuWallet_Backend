@@ -1,5 +1,13 @@
 export type WalletEligibility = 'verified' | 'not_verified';
 export type CredentialStatus = WalletEligibility | 'issued';
+/**
+ * Explains why graduation fields are present or absent without turning a
+ * missing academic fact into display text.
+ */
+export type GraduationRecordStatus =
+  | 'recorded'
+  | 'not_applicable'
+  | 'missing';
 
 export interface IssuerProgramOption {
   facultyCode: string;
@@ -23,6 +31,11 @@ export interface IssuerStudentSummary {
   graduationDate: string | null;
   graduationYear: number | null;
   graduationClass: number | null;
+  /**
+   * `not_applicable` means the student has not completed the programme yet.
+   * `missing` means a graduate/alumnus is missing an expected graduation row.
+   */
+  graduationRecordStatus: GraduationRecordStatus;
   walletEligibility: WalletEligibility;
   /**
    * Display status for the issuer's Student Data table. `issued` takes

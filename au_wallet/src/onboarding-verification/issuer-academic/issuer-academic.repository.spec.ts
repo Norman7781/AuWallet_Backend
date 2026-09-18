@@ -224,6 +224,7 @@ describe('IssuerAcademicRepository', () => {
           programCode: 'SYN-VMES-CS',
           graduationClass: 52,
           graduationYear: 2025,
+          graduationRecordStatus: 'recorded',
           walletEligibility: 'verified',
           credentialStatus: 'issued',
         }),
@@ -246,6 +247,66 @@ describe('IssuerAcademicRepository', () => {
     expect(selectedColumns).not.toMatch(
       /date_of_birth|email|passport|hmac|holder_account_id|auth_user_id/i,
     );
+  });
+
+  it('marks graduation fields as not applicable for students who have not graduated', async () => {
+    const { repository } = createRepository({
+      student: { data: [student], error: null, count: 1 },
+      student_program_enrollment: {
+        data: [{ ...enrollment, academic_status: 'studying' }],
+        error: null,
+      },
+      program: { data: [program], error: null },
+      graduation_record: { data: [], error: null },
+      issuer_provider: {
+        data: { issuer_provider_id: 31 },
+        error: null,
+      },
+      holder_issuer_connection: { data: [], error: null },
+      vc_issuance_log: { data: [], error: null },
+    });
+
+    await expect(
+      repository.listStudents({ q: '', page: 1, pageSize: 25 }),
+    ).resolves.toEqual({
+      total: 1,
+      students: [
+        expect.objectContaining({
+          academicStatus: 'studying',
+          graduationDate: null,
+          graduationYear: null,
+          graduationClass: null,
+          graduationRecordStatus: 'not_applicable',
+        }),
+      ],
+    });
+  });
+
+  it('flags a graduate with no graduation row as missing academic data', async () => {
+    const { repository } = createRepository({
+      student: { data: [student], error: null, count: 1 },
+      student_program_enrollment: { data: [enrollment], error: null },
+      program: { data: [program], error: null },
+      graduation_record: { data: [], error: null },
+      issuer_provider: {
+        data: { issuer_provider_id: 31 },
+        error: null,
+      },
+      holder_issuer_connection: { data: [], error: null },
+      vc_issuance_log: { data: [], error: null },
+    });
+
+    await expect(
+      repository.listStudents({ q: '', page: 1, pageSize: 25 }),
+    ).resolves.toEqual({
+      total: 1,
+      students: [
+        expect.objectContaining({
+          academicStatus: 'graduated',
+          graduationRecordStatus: 'missing',
+        }),
+      ],
+    });
   });
 
   it('lists only completed issued credentials with safe display fields', async () => {
