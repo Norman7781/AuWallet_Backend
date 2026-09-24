@@ -202,15 +202,20 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(emailInput: string) {
+  async forgotPassword(emailInput: string, redirectTo?: string) {
     const email = emailInput.trim().toLowerCase();
     const authClient = this.supabaseService.createAuthClient();
 
     const { error } = await authClient.auth.resetPasswordForEmail(email, {
-      redirectTo: process.env.PASSWORD_RESET_REDIRECT_URL,
+      redirectTo:
+        redirectTo ||
+        process.env.PASSWORD_RESET_REDIRECT_URL ||
+        'https://your-default-website.com/reset',
     });
 
     if (error) {
+      console.error('--- SUPABASE RESET PASSWORD ERROR ---');
+      console.error(error);
       throw new BadRequestException('Unable to process the password reset');
     }
 

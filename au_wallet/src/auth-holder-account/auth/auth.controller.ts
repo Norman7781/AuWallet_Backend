@@ -39,8 +39,9 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email, dto.redirectTo);
+    return { success: true };
   }
 
   @Post('resend-confirmation')
