@@ -16,25 +16,29 @@ export class IssuanceRepository {
     cNonce: string,
     cNonceExpiresAt: string,
     txCodeHash: string,
+    allowAlreadyIssued = false,
   ) {
     const studentId = claims.student?.identifier?.value;
     if (!studentId) {
       throw new Error('claims.student.identifier.value is required');
     }
 
-    // Duplicate-issuance guard: block a second offer for the same
-    // student_id if one has already been issued.
-    const { data: existing } = await this.supabase
-      .from('vc_issuance_log')
-      .select('status')
-      .eq('student_id', studentId)
-      .eq('status', 'issued')
-      .maybeSingle();
+    // Ordinary issuance cannot duplicate an issued transcript. The guarded
+    // reissue route explicitly opts into creating a replacement offer.
+    if (!allowAlreadyIssued) {
+      const { data: existing, error: existingError } = await this.supabase
+        .from('vc_issuance_log')
+        .select('status')
+        .eq('student_id', studentId)
+        .eq('status', 'issued')
+        .maybeSingle();
 
-    if (existing) {
-      throw new Error(
-        `Academic transcript already issued for student ${studentId}`,
-      );
+      if (existingError) throw existingError;
+      if (existing) {
+        throw new Error(
+          `Academic transcript already issued for student ${studentId}`,
+        );
+      }
     }
 
     // A transcript may have only one live offer at a time. Re-issuing an
@@ -100,6 +104,32 @@ export class IssuanceRepository {
     return data;
   }
 
+  async findIssuedByCredentialId(credentialId: string) {
+    const find = async (column: 'credential_id' | 'code') => {
+      const { data, error } = await this.supabase
+        .from('vc_issuance_log')
+        .select('code, student_id, credential_id, status')
+        .eq(column, credentialId)
+        .eq('status', 'issued')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    };
+
+    return (await find('credential_id')) ?? (await find('code'));
+  }
+
+  async findPendingByStudentId(studentId: string) {
+    const { data, error } = await this.supabase
+      .from('vc_issuance_log')
+      .select('code')
+      .eq('student_id', studentId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
   async findByAccessToken(token: string) {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')
@@ -116,6 +146,7 @@ export class IssuanceRepository {
       .from('vc_issuance_log')
       .update({ status: 'issued', issued_at: new Date().toISOString() })
       .eq('code', code)
+      .in('status', ['pending', 'token_issued'])
       .select()
       .maybeSingle();
 
@@ -134,6 +165,20 @@ export class IssuanceRepository {
     if (error) throw error;
     return data;
   }
+
+  async markIssuedCredentialRevoked(code: string) {
+    const { data, error } = await this.supabase
+      .from('vc_issuance_log')
+      .update({ status: 'revoked' })
+      .eq('code', code)
+      .eq('status', 'issued')
+      .select('code, credential_id, status')
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
+
   async findByStudentId(studentId: string) {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')

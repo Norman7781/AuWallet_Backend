@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   Headers,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
   UnauthorizedException,
   UseGuards,
@@ -39,6 +41,7 @@ import {
   validateAcademicTranscriptClaims,
 } from './Schema_Validator';
 import { CreateAcademicTranscriptOfferDto } from './dto/create-academic-transcript-offer.dto';
+import { IssuerApiAuthGuard } from '../onboarding-verification/issuer-academic/issuer-api-auth.guard';
 
 const ACCESS_TOKEN_LIFETIME_SECONDS = 300;
 const C_NONCE_LIFETIME_SECONDS = 300;
@@ -165,9 +168,61 @@ export class VcIssuanceController {
   async createAcademicTranscriptOffer(
     @Body() dto: CreateAcademicTranscriptOfferDto,
   ) {
+    return this.createOfferForStudent(dto.studentNumber);
+  }
+
+  @Post('issuer/credentials/:credentialId/reissue')
+  @UseGuards(IssuerApiAuthGuard)
+  async reissueCredential(
+    @Param('credentialId', new ParseUUIDPipe({ version: '4' }))
+    credentialId: string,
+  ) {
+    const issued = await this.issuanceRepo.findIssuedByCredentialId(credentialId);
+    if (!issued) throw new NotFoundException('issued credential not found');
+
+    const pending = await this.issuanceRepo.findPendingByStudentId(
+      issued.student_id,
+    );
+    if (pending) {
+      throw new ConflictException(
+        'A credential offer is already pending for this student.',
+      );
+    }
+
+    const offer = await this.createOfferForStudent(issued.student_id, true);
+    return { ...offer, previousCredentialId: credentialId };
+  }
+
+  @Post('issuer/credentials/:credentialId/revoke')
+  @UseGuards(IssuerApiAuthGuard)
+  async revokeIssuedCredential(
+    @Param('credentialId', new ParseUUIDPipe({ version: '4' }))
+    credentialId: string,
+  ) {
+    const issued = await this.issuanceRepo.findIssuedByCredentialId(credentialId);
+    if (!issued) throw new NotFoundException('issued credential not found');
+
+    const revoked = await this.issuanceRepo.markIssuedCredentialRevoked(
+      issued.code,
+    );
+    if (!revoked) {
+      throw new ConflictException('credential is no longer active');
+    }
+
+    return {
+      credentialId: revoked.credential_id ?? revoked.code,
+      offerId: revoked.code,
+      status: 'revoked',
+    };
+  }
+
+  private async createOfferForStudent(
+    studentNumber: string,
+    allowAlreadyIssued = false,
+  ) {
     const academicRecord =
       await this.studentAcademicService.getFullAcademicRecord(
-        dto.studentNumber,
+        studentNumber,
       );
     const claims = buildAcademicTranscriptClaims(academicRecord);
 
@@ -199,6 +254,7 @@ export class VcIssuanceController {
       cNonce,
       cNonceExpiresAt,
       hashTxCode(txCode),
+      allowAlreadyIssued,
     );
 
     const offer = {
@@ -262,14 +318,19 @@ export class VcIssuanceController {
     const rows = offers || [];
     const latestPendingOffer = rows.find((offer) => offer.status === 'pending');
     const issuedOffers = rows.filter((offer) => offer.status === 'issued');
+    const revokedCredentials = rows.filter(
+      (offer) =>
+        offer.status === 'revoked' &&
+        (offer.credential_id || offer.issued_at || offer.accepted_at),
+    );
 
     // Older pending rows are historical, unclaimed offers. They must never
     // be made actionable again merely because a holder opens their wallet.
     // New creations revoke any earlier pending offer, but keeping this limit
     // also protects holders while old data is being cleaned up.
     const offerRows = latestPendingOffer
-      ? [latestPendingOffer, ...issuedOffers]
-      : issuedOffers;
+      ? [latestPendingOffer, ...issuedOffers, ...revokedCredentials]
+      : [...issuedOffers, ...revokedCredentials];
     const offersWithDirectNonce = await Promise.all(
       offerRows.map(async (offer) => {
         if (offer.status !== 'pending') return offer;
@@ -561,7 +622,10 @@ export class VcIssuanceController {
       throw err;
     }
 
-    await this.issuanceRepo.markIssued(offer.code);
+    const updated = await this.issuanceRepo.markIssued(offer.code);
+    if (!updated) {
+      throw new ConflictException('offer no longer available');
+    }
 
     return {
       credential,
