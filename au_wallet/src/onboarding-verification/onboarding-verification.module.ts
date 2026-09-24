@@ -79,6 +79,7 @@ import { IssuerApiAuthGuard } from './issuer-academic/issuer-api-auth.guard';
     PassportHmacService,
     StudentMatchingService,
     IssuerAcademicRepository,
+    IssuerApiAuthGuard,
   ],
 })
 export class OnboardingVerificationModule {}
