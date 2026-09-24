@@ -61,6 +61,7 @@ function createService() {
     signInWithPassword,
     refreshSession,
     resend,
+    resetPasswordForEmail,
     updateUserById,
     deleteUser,
     signOut,
@@ -76,6 +77,52 @@ function createService() {
 }
 
 describe('AuthService', () => {
+  it('requests a Supabase password recovery email with the configured app callback', async () => {
+    const { service, resetPasswordForEmail } = createService();
+    const previousRedirect = process.env.PASSWORD_RESET_REDIRECT_URL;
+    process.env.PASSWORD_RESET_REDIRECT_URL = 'auwallet://reset-password';
+    resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+    try {
+      await expect(service.forgotPassword(' Student@Example.com ')).resolves.toEqual({
+        message: 'If the email is registered, a password reset link has been sent.',
+      });
+      expect(resetPasswordForEmail).toHaveBeenCalledWith('student@example.com', {
+        redirectTo: 'auwallet://reset-password',
+      });
+    } finally {
+      if (previousRedirect === undefined) delete process.env.PASSWORD_RESET_REDIRECT_URL;
+      else process.env.PASSWORD_RESET_REDIRECT_URL = previousRedirect;
+    }
+  });
+
+  it('does not expose Supabase password-recovery errors', async () => {
+    const { service, resetPasswordForEmail } = createService();
+    resetPasswordForEmail.mockResolvedValue({
+      data: {},
+      error: { message: 'unsafe provider detail' },
+    });
+
+    await expect(service.forgotPassword('student@example.com')).rejects.toMatchObject({
+      status: 400,
+      message: 'Unable to process the password reset',
+    });
+  });
+
+  it('uses a caller-provided password reset redirect', async () => {
+    const { service, resetPasswordForEmail } = createService();
+    resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+    await service.forgotPassword(
+      'student@example.com',
+      'https://wallet.example/reset',
+    );
+
+    expect(resetPasswordForEmail).toHaveBeenCalledWith('student@example.com', {
+      redirectTo: 'https://wallet.example/reset',
+    });
+  });
+
   it('assigns the student role in protected app metadata and creates a pending holder', async () => {
     const {
       service,

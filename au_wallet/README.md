@@ -36,6 +36,14 @@ cp .env.example .env
 Use a backend-only `sb_secret_...` key for `SUPABASE_SECRET_KEY`. Never send
 that key to the wallet frontend.
 
+For holder password recovery, set `PASSWORD_RESET_REDIRECT_URL` to the URL that
+opens the holder app. Production/development builds use
+`auwallet://reset-password`. Expo Go uses the current Metro address, for example
+`exp://192.168.1.22:8081/--/reset-password`. Add the same value in Supabase
+Dashboard under Authentication → URL Configuration → Redirect URLs. Expo Go
+addresses can change with the computer's local IP; use a development build for
+a stable callback.
+
 Before using the Member 1 endpoints, apply
 `src/supabase/migrations/202607280001_complete_member1_auth.sql` to the shared
 development project through the Supabase SQL editor. The migration links
