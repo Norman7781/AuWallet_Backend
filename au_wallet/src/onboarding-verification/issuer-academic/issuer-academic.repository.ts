@@ -68,6 +68,15 @@ interface ConnectionRow {
   verified_enrollment_id: number;
 }
 
+interface HolderConnectionRow {
+  holder_account_id: number;
+}
+
+interface HolderEmailRow {
+  personal_email: string | null;
+  university_email: string | null;
+}
+
 interface IssuedCredentialRow {
   code: string;
   student_id: string;
@@ -198,10 +207,9 @@ export class IssuerAcademicRepository {
     const to = from + input.pageSize - 1;
     let query = this.publicClient
       .from('vc_issuance_log')
-      .select(
-        'code, student_id, claims, credential_id, issued_at',
-        { count: 'exact' },
-      )
+      .select('code, student_id, claims, credential_id, issued_at', {
+        count: 'exact',
+      })
       .eq('status', 'issued')
       .order('issued_at', { ascending: false })
       .range(from, to);
@@ -258,6 +266,68 @@ export class IssuerAcademicRepository {
       requirementsFulfilled: graduation?.requirements_fulfilled ?? null,
       award: graduation?.award ?? null,
     };
+  }
+
+  async loadHolderEmail(studentNumber: string): Promise<string | null> {
+    const { data: student, error: studentError } = await this.supabase
+      .schema('academic')
+      .from('student')
+      .select('student_id')
+      .eq('admission_no', studentNumber)
+      .maybeSingle()
+      .overrideTypes<Pick<StudentRow, 'student_id'> | null, { merge: false }>();
+
+    if (studentError) this.fail();
+    if (!student) this.notFound();
+
+    const { data: enrollment, error: enrollmentError } = await this.supabase
+      .schema('academic')
+      .from('student_program_enrollment')
+      .select('enrollment_id')
+      .eq('student_id', student.student_id)
+      .order('admission_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .overrideTypes<
+        Pick<EnrollmentRow, 'enrollment_id'> | null,
+        { merge: false }
+      >();
+
+    if (enrollmentError) this.fail();
+    if (!enrollment) return null;
+
+    const { data: provider, error: providerError } = await this.supabase
+      .schema('wallet')
+      .from('issuer_provider')
+      .select('issuer_provider_id')
+      .eq('issuer_code', ASSUMPTION_UNIVERSITY_ISSUER_CODE)
+      .maybeSingle()
+      .overrideTypes<ProviderRow | null, { merge: false }>();
+
+    if (providerError || !provider) return null;
+
+    const { data: connection, error: connectionError } = await this.supabase
+      .schema('wallet')
+      .from('holder_issuer_connection')
+      .select('holder_account_id')
+      .eq('issuer_provider_id', provider.issuer_provider_id)
+      .eq('connection_status', 'verified')
+      .eq('verified_enrollment_id', enrollment.enrollment_id)
+      .maybeSingle()
+      .overrideTypes<HolderConnectionRow | null, { merge: false }>();
+
+    if (connectionError || !connection) return null;
+
+    const { data: holder, error: holderError } = await this.supabase
+      .schema('wallet')
+      .from('holder_account')
+      .select('personal_email, university_email')
+      .eq('holder_account_id', connection.holder_account_id)
+      .maybeSingle()
+      .overrideTypes<HolderEmailRow | null, { merge: false }>();
+
+    if (holderError) this.fail();
+    return holder?.personal_email ?? holder?.university_email ?? null;
   }
 
   async loadAcademicPreview(studentNumber: string): Promise<AcademicPreview> {
@@ -573,7 +643,9 @@ export class IssuerAcademicRepository {
   ): Promise<IssuerStudentSummary[]> {
     if (students.length === 0) return students;
 
-    const studentNumbers = [...new Set(students.map((row) => row.studentNumber))];
+    const studentNumbers = [
+      ...new Set(students.map((row) => row.studentNumber)),
+    ];
     const query = this.publicClient
       .from('vc_issuance_log')
       .select('student_id')
@@ -584,9 +656,11 @@ export class IssuerAcademicRepository {
     if (issuedRows.error) this.fail();
 
     const issuedStudentNumbers = new Set(
-      ((issuedRows.data ?? []) as Array<Pick<IssuedCredentialRow, 'student_id'>>).map(
-        (row) => row.student_id,
-      ),
+      (
+        (issuedRows.data ?? []) as Array<
+          Pick<IssuedCredentialRow, 'student_id'>
+        >
+      ).map((row) => row.student_id),
     );
 
     return students.map((student) => ({

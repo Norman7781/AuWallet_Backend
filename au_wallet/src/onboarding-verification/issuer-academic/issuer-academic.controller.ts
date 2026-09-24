@@ -43,6 +43,11 @@ export class IssuerAcademicController {
     return this.issuerAcademic.getAcademicReview(params.studentNumber);
   }
 
+  @Get('students/:studentNumber/holder-email')
+  holderEmail(@Param() params: IssuerStudentNumberDto) {
+    return this.issuerAcademic.getHolderEmail(params.studentNumber);
+  }
+
   @Get('students/:studentNumber/academic-preview')
   academicPreview(@Param() params: IssuerStudentNumberDto) {
     return this.issuerAcademic.getAcademicPreview(params.studentNumber);

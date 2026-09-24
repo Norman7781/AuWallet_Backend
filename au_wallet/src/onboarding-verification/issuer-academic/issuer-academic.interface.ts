@@ -4,10 +4,7 @@ export type CredentialStatus = WalletEligibility | 'issued';
  * Explains why graduation fields are present or absent without turning a
  * missing academic fact into display text.
  */
-export type GraduationRecordStatus =
-  | 'recorded'
-  | 'not_applicable'
-  | 'missing';
+export type GraduationRecordStatus = 'recorded' | 'not_applicable' | 'missing';
 
 export interface IssuerProgramOption {
   facultyCode: string;

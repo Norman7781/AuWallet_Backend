@@ -62,6 +62,14 @@ export class IssuerAcademicService {
     };
   }
 
+  async getHolderEmail(studentNumber: string) {
+    return {
+      data: { email: await this.repository.loadHolderEmail(studentNumber) },
+      message: 'Holder email loaded.',
+      meta: {},
+    };
+  }
+
   async listGraduatingStudents(query: ListGraduatingStudentsDto) {
     const students = await this.repository.listGraduatingStudents(query);
 
