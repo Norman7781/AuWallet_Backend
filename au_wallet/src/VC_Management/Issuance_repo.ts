@@ -104,14 +104,16 @@ export class IssuanceRepository {
     return data;
   }
 
-  async findIssuedByCredentialId(credentialId: string) {
+  async findIssuedByCredentialId(credentialId: string, includeRevoked = false) {
     const find = async (column: 'credential_id' | 'code') => {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('vc_issuance_log')
         .select('code, student_id, credential_id, status')
-        .eq(column, credentialId)
-        .eq('status', 'issued')
-        .maybeSingle();
+        .eq(column, credentialId);
+      query = includeRevoked
+        ? query.in('status', ['issued', 'revoked']).not('issued_at', 'is', null)
+        : query.eq('status', 'issued');
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     };
@@ -166,13 +168,17 @@ export class IssuanceRepository {
     return data;
   }
 
-  async markIssuedCredentialRevoked(code: string) {
+  async markIssuedCredentialRevoked(code: string, reason: string) {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')
-      .update({ status: 'revoked' })
+      .update({
+        status: 'revoked',
+        revocation_reason: reason,
+        revoked_at: new Date().toISOString(),
+      })
       .eq('code', code)
       .eq('status', 'issued')
-      .select('code, credential_id, status')
+      .select('code, credential_id, status, revocation_reason, revoked_at')
       .maybeSingle();
 
     if (error) throw error;
@@ -183,7 +189,7 @@ export class IssuanceRepository {
     const { data, error } = await this.supabase
       .from('vc_issuance_log')
       .select(
-        'code, student_id, claims, status, created_at, issued_at, accepted_at, credential_id, c_nonce, c_nonce_expires_at, c_nonce_consumed_at, c_nonce_holder_account_id',
+        'code, student_id, claims, status, created_at, issued_at, accepted_at, credential_id, revocation_reason, revoked_at, c_nonce, c_nonce_expires_at, c_nonce_consumed_at, c_nonce_holder_account_id',
       )
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });

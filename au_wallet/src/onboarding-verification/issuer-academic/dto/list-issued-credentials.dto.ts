@@ -1,7 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 export class ListIssuedCredentialsDto {
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeRevoked?: string;
+
   @IsOptional()
   @Matches(/^[A-Za-z0-9 .'-]{1,80}$/)
   q?: string;
