@@ -41,6 +41,7 @@ import {
   validateAcademicTranscriptClaims,
 } from './Schema_Validator';
 import { CreateAcademicTranscriptOfferDto } from './dto/create-academic-transcript-offer.dto';
+import { RevokeCredentialDto } from './dto/revoke-credential.dto';
 import { IssuerApiAuthGuard } from '../onboarding-verification/issuer-academic/issuer-api-auth.guard';
 
 const ACCESS_TOKEN_LIFETIME_SECONDS = 300;
@@ -177,7 +178,7 @@ export class VcIssuanceController {
     @Param('credentialId', new ParseUUIDPipe({ version: '4' }))
     credentialId: string,
   ) {
-    const issued = await this.issuanceRepo.findIssuedByCredentialId(credentialId);
+    const issued = await this.issuanceRepo.findIssuedByCredentialId(credentialId, true);
     if (!issued) throw new NotFoundException('issued credential not found');
 
     const pending = await this.issuanceRepo.findPendingByStudentId(
@@ -198,12 +199,14 @@ export class VcIssuanceController {
   async revokeIssuedCredential(
     @Param('credentialId', new ParseUUIDPipe({ version: '4' }))
     credentialId: string,
+    @Body() input: RevokeCredentialDto,
   ) {
     const issued = await this.issuanceRepo.findIssuedByCredentialId(credentialId);
     if (!issued) throw new NotFoundException('issued credential not found');
 
     const revoked = await this.issuanceRepo.markIssuedCredentialRevoked(
       issued.code,
+      input.reason,
     );
     if (!revoked) {
       throw new ConflictException('credential is no longer active');
@@ -213,6 +216,8 @@ export class VcIssuanceController {
       credentialId: revoked.credential_id ?? revoked.code,
       offerId: revoked.code,
       status: 'revoked',
+      revocationReason: revoked.revocation_reason,
+      revokedAt: revoked.revoked_at,
     };
   }
 
@@ -371,6 +376,8 @@ export class VcIssuanceController {
         holderName: `${holder.firstName} ${holder.lastName}`.trim(),
         status: o.status,
         createdAt: o.created_at,
+        revocationReason: o.revocation_reason ?? null,
+        revokedAt: o.revoked_at ?? null,
         acceptedAt: o.accepted_at ?? null,
         credentialId: o.credential_id ?? null,
         ...(o.status === 'pending'

@@ -78,6 +78,7 @@ interface HolderEmailRow {
 }
 
 interface IssuedCredentialRow {
+  status: 'issued' | 'revoked';
   code: string;
   student_id: string;
   claims: unknown;
@@ -200,6 +201,7 @@ export class IssuerAcademicRepository {
 
   async listIssuedCredentials(input: {
     q?: string;
+    includeRevoked?: string;
     page: number;
     pageSize: number;
   }): Promise<{ credentials: IssuedCredentialSummary[]; total: number }> {
@@ -207,12 +209,15 @@ export class IssuerAcademicRepository {
     const to = from + input.pageSize - 1;
     let query = this.publicClient
       .from('vc_issuance_log')
-      .select('code, student_id, claims, credential_id, issued_at', {
+      .select('code, student_id, claims, credential_id, issued_at, status', {
         count: 'exact',
       })
-      .eq('status', 'issued')
       .order('issued_at', { ascending: false })
       .range(from, to);
+
+    query = input.includeRevoked === 'true'
+      ? query.in('status', ['issued', 'revoked']).not('issued_at', 'is', null)
+      : query.eq('status', 'issued');
 
     if (input.q) {
       const pattern = `%${input.q.trim()}%`;
@@ -232,7 +237,7 @@ export class IssuerAcademicRepository {
           major: this.extractMajor(row.claims),
           credentialType: 'academic_transcript',
           issuedAt: row.issued_at as string,
-          status: 'issued',
+          status: row.status,
         })),
       total: count,
     };

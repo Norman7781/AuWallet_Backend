@@ -47,7 +47,7 @@ export interface IssuedCredentialSummary {
   major: string | null;
   credentialType: 'academic_transcript';
   issuedAt: string;
-  status: 'issued';
+  status: 'issued' | 'revoked';
 }
 
 export interface AcademicReview extends IssuerStudentSummary {
