@@ -4,6 +4,7 @@ describe('IssuerAcademicService', () => {
   const student = {
     studentNumber: '6499002',
     fullName: 'Mr Kawin Rattanakul',
+    gender: 'male',
     facultyCode: 'VMES',
     facultyName: 'Vincent Mary School of Engineering, Science and Technology',
     programCode: 'SYN-VMES-CS',

@@ -24,6 +24,7 @@ interface StudentRow {
   first_name: string;
   middle_name: string | null;
   last_name: string;
+  gender: string | null;
 }
 
 interface EnrollmentRow {
@@ -171,7 +172,7 @@ export class IssuerAcademicRepository {
       .schema('academic')
       .from('student')
       .select(
-        'student_id, admission_no, title, first_name, middle_name, last_name',
+        'student_id, admission_no, title, first_name, middle_name, last_name, gender',
         { count: 'exact' },
       )
       .order('admission_no', { ascending: true })
@@ -466,7 +467,7 @@ export class IssuerAcademicRepository {
       .schema('academic')
       .from('student')
       .select(
-        'student_id, admission_no, title, first_name, middle_name, last_name',
+        'student_id, admission_no, title, first_name, middle_name, last_name, gender',
       )
       .in(
         'student_id',
@@ -683,7 +684,7 @@ export class IssuerAcademicRepository {
       .schema('academic')
       .from('student')
       .select(
-        'student_id, admission_no, title, first_name, middle_name, last_name',
+        'student_id, admission_no, title, first_name, middle_name, last_name, gender',
       )
       .eq('admission_no', studentNumber)
       .maybeSingle()
@@ -801,6 +802,7 @@ export class IssuerAcademicRepository {
       ]
         .filter((part): part is string => Boolean(part))
         .join(' '),
+      gender: context.student.gender ?? null,
       facultyCode: context.program.faculty_code,
       facultyName: context.program.faculty_name,
       programCode: context.program.program_code,

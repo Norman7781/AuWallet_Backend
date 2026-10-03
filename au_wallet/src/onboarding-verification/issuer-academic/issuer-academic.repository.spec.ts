@@ -80,6 +80,7 @@ const student = {
   first_name: 'Kawin',
   middle_name: null,
   last_name: 'Rattanakul',
+  gender: 'male',
 };
 const enrollment = {
   enrollment_id: 11,
@@ -221,6 +222,7 @@ describe('IssuerAcademicRepository', () => {
         expect.objectContaining({
           studentNumber: '6499002',
           fullName: 'Mr Kawin Rattanakul',
+          gender: 'male',
           programCode: 'SYN-VMES-CS',
           graduationClass: 52,
           graduationYear: 2025,
@@ -231,6 +233,10 @@ describe('IssuerAcademicRepository', () => {
       ],
     });
     expect(queries.student[0].range).toHaveBeenCalledWith(0, 24);
+    expect(queries.student[0].select).toHaveBeenCalledWith(
+      'student_id, admission_no, title, first_name, middle_name, last_name, gender',
+      { count: 'exact' },
+    );
     expect(queries.student[0].or).toHaveBeenCalledTimes(1);
     expect(from).toHaveBeenCalledTimes(7);
     expect(JSON.stringify(result)).not.toMatch(
@@ -282,6 +288,22 @@ describe('IssuerAcademicRepository', () => {
     });
   });
 
+  it.each(['male', 'female', null])(
+    'returns the stored gender %s in academic review without deriving it from title',
+    async (gender) => {
+      const { repository } = createRepository(
+        studentContextResponses({
+          student: { data: { ...student, title: 'Dr', gender }, error: null },
+        }),
+      );
+
+      const review = await repository.loadAcademicReview('6499002');
+
+      expect(review.gender).toBe(gender);
+      expect(review.fullName).toBe('Dr Kawin Rattanakul');
+    },
+  );
+
   it('flags a graduate with no graduation row as missing academic data', async () => {
     const { repository } = createRepository({
       student: { data: [student], error: null, count: 1 },
@@ -316,6 +338,7 @@ describe('IssuerAcademicRepository', () => {
           {
             code: 'offer-123',
             student_id: '6499002',
+            status: 'issued',
             credential_id: 'credential-123',
             issued_at: '2026-09-06T10:00:00.000Z',
             claims: {
@@ -352,7 +375,7 @@ describe('IssuerAcademicRepository', () => {
       'issued',
     );
     expect(queries.vc_issuance_log[0].select).toHaveBeenCalledWith(
-      'code, student_id, claims, credential_id, issued_at',
+      'code, student_id, claims, credential_id, issued_at, status',
       { count: 'exact' },
     );
   });
@@ -409,6 +432,7 @@ describe('IssuerAcademicRepository', () => {
       expect.objectContaining({
         studentNumber: '6499002',
         graduationDate: '2025-05-24',
+        gender: 'male',
         walletEligibility: 'verified',
       }),
     ]);

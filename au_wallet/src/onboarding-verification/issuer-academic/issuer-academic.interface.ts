@@ -18,6 +18,8 @@ export interface IssuerProgramOption {
 export interface IssuerStudentSummary {
   studentNumber: string;
   fullName: string;
+  /** Stored academic value; null when the Registrar has not recorded it. */
+  gender: string | null;
   facultyCode: string;
   facultyName: string;
   programCode: string;
